@@ -16,6 +16,7 @@ OrangePi-Config:
 ```
 enable: hardware->ph-pwm12
 enable: hardware->ph-uart2
+enable: hardware->ph-i2c3
 ```
 
 ## Подключение
