@@ -4,6 +4,7 @@
 
 - ros2 humble
 - libboost-all-dev
+- libi2c-dev
 
 ## Компоненты:
 Orange Pi Zero 3
