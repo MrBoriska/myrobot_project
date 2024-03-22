@@ -93,11 +93,11 @@ echo out > /sys/class/gpio/gpio70/direction
 echo 1 > /sys/class/gpio/gpio70/value
 ```
 Тормоз:
-PC9
+PH9
 ```
-echo 73 > /sys/class/gpio/export
-echo out > /sys/class/gpio/gpio73/direction
-echo 1 > /sys/class/gpio/gpio73/value
+echo 233 > /sys/class/gpio/export
+echo out > /sys/class/gpio/gpio233/direction
+echo 1 > /sys/class/gpio/gpio233/value
 ```
 
 
