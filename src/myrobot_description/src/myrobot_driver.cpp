@@ -14,6 +14,10 @@ using std::placeholders::_1;
 using std::placeholders::_2;
 using namespace std::chrono_literals;
 
+template <typename T> int sgn(T val) {
+    return (T(0) < val) - (val < T(0));
+}
+
 class MyRobotDriverNode : public rclcpp::Node
 {
 
@@ -42,37 +46,37 @@ public:
         std::string filepath = this->get_parameter("map_filepath").get_value<std::string>();
 
 
-        fd_lw_pwm = open("/sys/class/pwm/pwmchip0/pwm1/duty_cycle", O_WRONLY);
+        fd_lw_pwm = open("/sys/class/pwm/pwmchip0/pwm1/duty_cycle", ,O_WRONLY|O_CLOEXEC);
         if (fd_lw_dir == -1) {
             perror("Unable to open /sys/class/pwm/pwmchip0/pwm1/duty_cycle");
             exit(1);
         }
-        fd_rw_pwm = open("/sys/class/pwm/pwmchip0/pwm2/duty_cycle", O_WRONLY);
+        fd_rw_pwm = open("/sys/class/pwm/pwmchip0/pwm2/duty_cycle", ,O_WRONLY|O_CLOEXEC);
         if (fd_lw_dir == -1) {
             perror("Unable to open /sys/class/pwm/pwmchip0/pwm2/duty_cycle");
             exit(1);
         }
-        fd_lw_dir = open("/sys/class/gpio/gpio69/value", O_WRONLY);
+        fd_lw_dir = open("/sys/class/gpio/gpio69/value", ,O_WRONLY|O_CLOEXEC);
         if (fd_lw_dir == -1) {
             perror("Unable to open /sys/class/gpio/gpio69/value");
             exit(1);
         }
-        fd_rw_dir = open("/sys/class/gpio/gpio70/value", O_WRONLY);
+        fd_rw_dir = open("/sys/class/gpio/gpio70/value", ,O_WRONLY|O_CLOEXEC);
         if (fd_lw_dir == -1) {
             perror("Unable to open /sys/class/gpio/gpio70/value");
             exit(1);
         }
-        // fd_lw_int = open("/sys/class/gpio/gpio24/value", O_WRONLY);
+        // fd_lw_int = open("/sys/class/gpio/gpio24/value", ,O_WRONLY|O_CLOEXEC);
         // if (fd_lw_dir == -1) {
         //     perror("Unable to open", "/sys/class/gpio/gpio24/value");
         //     exit(1);
         // }
-        // fd_rw_int = open("/sys/class/gpio/gpio24/value", O_WRONLY);
+        // fd_rw_int = open("/sys/class/gpio/gpio24/value", ,O_WRONLY|O_CLOEXEC);
         // if (fd_lw_dir == -1) {
         //     perror("Unable to open", "/sys/class/gpio/gpio24/value");
         //     exit(1);
         // }
-        fd_w_brake = open("/sys/class/gpio/gpio73/value", O_WRONLY);
+        fd_w_brake = open("/sys/class/gpio/gpio73/value", ,O_WRONLY|O_CLOEXEC);
         if (fd_lw_dir == -1) {
             perror("Unable to open /sys/class/gpio/gpio73/value");
             exit(1);
@@ -82,7 +86,7 @@ public:
         sub_cmd = this->create_subscription<geometry_msgs::msg::Twist>("cmd_vel", 10, std::bind(&MyRobotDriverNode::cmd_Callback, this, _1));
         pub_js = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10 /*rclcpp::SensorDataQoS()*/);
 
-        main_process = this->create_wall_timer(0.5s, std::bind(&MyRobotDriverNode::process, this));
+        main_process = this->create_wall_timer(0.02s, std::bind(&MyRobotDriverNode::process, this));
     }
 
     ~MyRobotDriverNode() {
@@ -109,19 +113,11 @@ public:
 
         int freq_p = 20000000;
         double max_v = 1.0;
-
-        auto slw = std::to_string(abs(int((1.0-fabs(wheel_l/max_v))*freq_p))).c_str();
-        printf(slw);
-        if (write(fd_lw_pwm, slw, sizeof(slw)) != 1) {
-            perror("Error writing");
-            exit(1);
-        }
-        auto srw = std::to_string(abs(int((1.0-fabs(wheel_r/max_v))*freq_p))).c_str();
-        printf(srw);
-        if (write(fd_rw_pwm, srw, sizeof(srw)) != 1) {
-            perror("Error writing");
-            exit(1);
-        }
+        
+        dprintf(fd_lw_dir,"%d",sgn(wheel_l));
+        dprintf(fd_lw_pwm,"%u",(unsigned int)roundf((1.0-fabs(wheel_l/max_v))*freq_p));
+        dprintf(fd_rw_dir,"%d",sgn(wheel_r));
+        dprintf(fd_rw_pwm,"%u",(unsigned int)roundf((1.0-fabs(wheel_r/max_v))*freq_p));
     }
 
 };
