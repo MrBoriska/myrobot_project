@@ -53,6 +53,9 @@ class MyRobotDriverNode : public rclcpp::Node
     double r_pos = 0.0;
     double l_pos_rad = 0.0;
     double r_pos_rad = 0.0;
+    double l_speed = 0.0;
+    double r_speed = 0.0;
+
 
     PID *lw_pid_regulator;
     PID *rw_pid_regulator;
@@ -63,9 +66,8 @@ public:
         : Node("myrobot_driver")
     {
         //this->declare_parameter("map_filepath", "map.json");
-        this->declare_parameter("lw_pid", std::vector<float>{0.01, 0.0, 0.0});
-        this->declare_parameter("rw_pid", std::vector<float>{0.01, 0.0, 0.0});
-
+        this->declare_parameter("lw_pid", std::vector<float>{0.1, 0.00, 0.0});
+        this->declare_parameter("rw_pid", std::vector<float>{0.1, 0.00, 0.0});
 
         //std::string filepath = this->get_parameter("map_filepath").get_value<std::string>();
 
@@ -113,14 +115,15 @@ public:
         lw_pid_regulator = new PID(1.0, -1.0, lw_pid[0], lw_pid[1], lw_pid[2]);
         rw_pid_regulator = new PID(1.0, -1.0, rw_pid[0], rw_pid[1], rw_pid[2]);
 
-        sub_cmd = this->create_subscription<geometry_msgs::msg::Twist>("cmd_vel", 10, std::bind(&MyRobotDriverNode::cmd_Callback, this, _1));
-        pub_js = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10 /*rclcpp::SensorDataQoS()*/);
-
         my_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
         my_callback_group2 = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
         my_callback_group3 = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
-        main_process = this->create_wall_timer(0.02s, std::bind(&MyRobotDriverNode::process, this), my_callback_group3);
+        sub_cmd = this->create_subscription<geometry_msgs::msg::Twist>("cmd_vel", 10, std::bind(&MyRobotDriverNode::cmd_Callback, this, _1));
+        pub_js = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10 /*rclcpp::SensorDataQoS()*/);
+
+
+        main_process = this->create_wall_timer(0.01s, std::bind(&MyRobotDriverNode::process, this), my_callback_group3);
 
         fb_lw_process = this->create_wall_timer(0.0s, std::bind(&MyRobotDriverNode::feedback_left_wheel, this), my_callback_group);
         fb_rw_process = this->create_wall_timer(0.0s, std::bind(&MyRobotDriverNode::feedback_right_wheel, this), my_callback_group2);
@@ -150,26 +153,29 @@ public:
         double r_pos_rad_curr = M_PI*r_pos/TICKS_IN_ROTATE;
         
         // Current speed
-        double l_speed = (l_pos_rad_curr-l_pos_rad)/0.02;
-        double r_speed = (r_pos_rad_curr-r_pos_rad)/0.02;
+        l_speed = (l_pos_rad_curr-l_pos_rad)/0.01;
+        r_speed = (r_pos_rad_curr-r_pos_rad)/0.01;
 
         // Calculate control value (pwm)
-        float lw_delta = lw_pid_regulator->calculate((wheel_l-l_speed), 0.0, 0.02);
-        float rw_delta = rw_pid_regulator->calculate((wheel_r-r_speed), 0.0, 0.02);
+        float lw_delta = lw_pid_regulator->calculate((wheel_l-l_speed), 0.0, 0.01);
+        float rw_delta = rw_pid_regulator->calculate((wheel_r-r_speed), 0.0, 0.01);
 
         // Update current pose (rad)
         l_pos_rad = l_pos_rad_curr;
         r_pos_rad = r_pos_rad_curr;
 
+        printf("%.2f, %.2f, %.2f, %.2f\n", wheel_l, l_speed, wheel_r, r_speed);
+
         // Set values to GPIO
-        dprintf(fd_lw_dir,"%d",(lw_delta > 0) ? 1 : 0);
+        dprintf(fd_lw_dir,"%d",(lw_delta >= 0) ? 1 : 0);
         dprintf(fd_lw_pwm,"%u",(unsigned int)roundf((1.0-fabs(lw_delta/max_v))*PWM_FREQ));
-        dprintf(fd_rw_dir,"%d",(rw_delta > 0) ? 1 : 0);
+        dprintf(fd_rw_dir,"%d",(rw_delta >= 0) ? 1 : 0);
         dprintf(fd_rw_pwm,"%u",(unsigned int)roundf((1.0-fabs(rw_delta/max_v))*PWM_FREQ));
-        dprintf(fd_w_brake,"%d",(lw_delta == 0.0 && rw_delta == 0.0) ? 1 : 0);
+        dprintf(fd_w_brake,"%d",(wheel_l == 0.0 && wheel_r == 0.0) ? 1 : 0);
 
         // Publish joint states
         sensor_msgs::msg::JointState js;
+        js.header = make_header(now());
         js.name = {"left_wheel", "right_wheel"};
         js.position = {l_pos_rad, r_pos_rad};
         js.velocity = {l_speed, r_speed};
@@ -184,7 +190,11 @@ public:
             read(fd_lw_int.fd, buf, 1);  //mandatory to make system register interrupt as served
             if (buf[0] == '0') {
                 //printf("LW interrupt! %d\n", int(buf[0]));
-                l_pos += (wheel_r > 0) ? 1 : -1;
+                if (l_speed == 0) {
+                    l_pos += (wheel_l > 0) ? 1 : -1;
+                } else {
+                    l_pos += (l_speed > 0) ? 1 : -1;
+                }
             }
         }
         lseek(fd_lw_int.fd, 0, 0); //return cursor to beginning of file or next read() will return EOF
@@ -197,10 +207,23 @@ public:
             read(fd_rw_int.fd, buf, 1);  //mandatory to make system register interrupt as served
             if (buf[0] == '0') {
                 //printf("RW interrupt! %d\n", int(buf[0]));
-                r_pos += (wheel_l > 0) ? 1 : -1;
+                if (r_speed == 0) {
+                    r_pos += (wheel_r > 0) ? 1 : -1;
+                } else {
+                    r_pos += (r_speed > 0) ? 1 : -1;
+                }
             }
         }
         lseek(fd_rw_int.fd, 0, 0); //return cursor to beginning of file or next read() will return EOF
+    }
+
+    std_msgs::msg::Header make_header(rclcpp::Time time)
+    {
+        std_msgs::msg::Header header;
+        header.stamp.sec = time.seconds();
+        header.stamp.nanosec = time.nanoseconds();
+        header.frame_id = "base_link";
+        return header;
     }
 
 };
