@@ -18,9 +18,9 @@ MPU9250Sensor::MPU9250Sensor(std::unique_ptr<I2cCommunicator> i2cBus) : i2cBus_(
     std::cerr << "Error waking sensor" << std::endl;
   }
   // Enable bypass mode for magnetometer
-  enableBypassMode();
+  //enableBypassMode();
   // Set magnetometer to 100 Hz continuous measurement mode
-  setContinuousMeasurementMode100Hz();
+  //setContinuousMeasurementMode100Hz();
   // Read current ranges from sensor
   readGyroscopeRange();
   readAccelerometerRange();
@@ -230,7 +230,7 @@ double MPU9250Sensor::getMagneticFluxDensityX() const
   int16_t magn_flux_x_lsb = i2cBus_->read(MAGN_XOUT_L);
   int16_t magn_flux_x = magn_flux_x_lsb | magn_flux_x_msb << 8;
   double magn_flux_x_converted = convertRawMagnetometerData(magn_flux_x);
-  initImuI2c();
+  //initImuI2c();
   return magn_flux_x_converted;
 }
 
@@ -241,7 +241,7 @@ double MPU9250Sensor::getMagneticFluxDensityY() const
   int16_t magn_flux_y_lsb = i2cBus_->read(MAGN_YOUT_L);
   int16_t magn_flux_y = magn_flux_y_lsb | magn_flux_y_msb << 8;
   double magn_flux_y_converted = convertRawMagnetometerData(magn_flux_y);
-  initImuI2c();
+  //initImuI2c();
   return magn_flux_y_converted;
 }
 
@@ -252,7 +252,7 @@ double MPU9250Sensor::getMagneticFluxDensityZ() const
   int16_t magn_flux_z_lsb = i2cBus_->read(MAGN_ZOUT_L);
   int16_t magn_flux_z = magn_flux_z_lsb | magn_flux_z_msb << 8;
   double magn_flux_z_converted = convertRawMagnetometerData(magn_flux_z);
-  initImuI2c();
+  //initImuI2c();
   return magn_flux_z_converted;
 }
 

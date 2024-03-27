@@ -78,14 +78,14 @@ public:
         //std::string filepath = this->get_parameter("map_filepath").get_value<std::string>();
 
 
-        fd_lw_pwm = open("/sys/class/pwm/pwmchip0/pwm1/duty_cycle", O_WRONLY|O_CLOEXEC);
+        fd_lw_pwm = open("/sys/class/pwm/pwmchip0/pwm3/duty_cycle", O_WRONLY|O_CLOEXEC);
         if (fd_lw_dir == -1) {
-            perror("Unable to open /sys/class/pwm/pwmchip0/pwm1/duty_cycle");
+            perror("Unable to open /sys/class/pwm/pwmchip0/pwm3/duty_cycle");
             exit(1);
         }
-        fd_rw_pwm = open("/sys/class/pwm/pwmchip0/pwm2/duty_cycle", O_WRONLY|O_CLOEXEC);
+        fd_rw_pwm = open("/sys/class/pwm/pwmchip0/pwm4/duty_cycle", O_WRONLY|O_CLOEXEC);
         if (fd_lw_dir == -1) {
-            perror("Unable to open /sys/class/pwm/pwmchip0/pwm2/duty_cycle");
+            perror("Unable to open /sys/class/pwm/pwmchip0/pwm4/duty_cycle");
             exit(1);
         }
         fd_lw_dir = open("/sys/class/gpio/gpio69/value", O_WRONLY|O_CLOEXEC);

@@ -15,33 +15,33 @@ LDS01RR LIDAR (https://aliexpress.ru/item/1005004231727158.html?spm=a2g2w.orderd
 
 OrangePi-Config:
 ```
-enable: hardware->ph-pwm12
-enable: hardware->ph-uart2
+enable: hardware->ph-pwm34
+enable: hardware->ph-uart5
 enable: hardware->ph-i2c3
 ```
 
 ## Подключение
 ### LDS01RR LIDAR 
 https://aliexpress.ru/item/1005004231727158.html?spm=a2g2w.orderdetail.0.0.65dd4aa6eVYCE1&sku_id=12000028465958093
- подключается к UART2 (TX -> RX-PH6, VCC -> 5V, GND->GND). Двигатель запитывается от 3.3 вольт, для поддержания +- 300rpm отдельным источником питания (3.3V/0.5A)
+ подключается к UART5 (TX -> RX-PH3, VCC -> 5V, GND->GND). Двигатель запитывается от 3.3 вольт, для поддержания +- 300rpm отдельным источником питания (3.3V/0.5A)
 
-Двигатели колес управляются двумя PWM аппаратно реализованых на пинах PWM1 (PH3) и PWM2 (PH2). Пример управления через терминал:
+Двигатели колес управляются двумя PWM аппаратно реализованых на пинах PWM3 (UART0 TX) и PWM4 (UART0 RX). Пример управления через терминал:
 
 PWM1 50HZ 5% Duty cycle
 ```
-root@orangepi:~# echo 1 > /sys/class/pwm/pwmchip0/export
-root@orangepi:~# echo 20000000 > /sys/class/pwm/pwmchip0/pwm1/period
-root@orangepi:~# echo 1000000 > /sys/class/pwm/pwmchip0/pwm1/duty_cycle
-root@orangepi:~# echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable
+root@orangepi:~# echo 3 > /sys/class/pwm/pwmchip0/export
+root@orangepi:~# echo 20000000 > /sys/class/pwm/pwmchip0/pwm3/period
+root@orangepi:~# echo 1000000 > /sys/class/pwm/pwmchip0/pwm3/duty_cycle
+root@orangepi:~# echo 1 > /sys/class/pwm/pwmchip0/pwm3/enable
 ```
 
 PWM2 50HZ 5% Duty cycle
 
 ```
-root@orangepi:~# echo 2 > /sys/class/pwm/pwmchip0/export
-root@orangepi:~# echo 20000000 > /sys/class/pwm/pwmchip0/pwm2/period
-root@orangepi:~# echo 1000000 > /sys/class/pwm/pwmchip0/pwm2/duty_cycle
-root@orangepi:~# echo 1 > /sys/class/pwm/pwmchip0/pwm2/enable
+root@orangepi:~# echo 4 > /sys/class/pwm/pwmchip0/export
+root@orangepi:~# echo 20000000 > /sys/class/pwm/pwmchip0/pwm4/period
+root@orangepi:~# echo 1000000 > /sys/class/pwm/pwmchip0/pwm4/duty_cycle
+root@orangepi:~# echo 1 > /sys/class/pwm/pwmchip0/pwm4/enable
 ```
 
 100% - остановка, 0% максимальная скорость
@@ -106,6 +106,6 @@ echo 1 > /sys/class/gpio/gpio233/value
 
 ```
 colcon build
-sudo chmod 0666 /dev/ttyS2
-ros2 run xv_11_driver xv_11_driver --ros-args -p port:=/dev/ttyS2 -p frame_id:=xv11_scan
+sudo chmod 0666 /dev/ttyS5
+ros2 run xv_11_driver xv_11_driver --ros-args -p port:=/dev/ttyS5 -p frame_id:=xv11_scan
 ```

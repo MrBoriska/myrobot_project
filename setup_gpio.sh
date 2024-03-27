@@ -1,16 +1,16 @@
 #!/bin/bash
 
-#PH3 - control left
-echo 1 > /sys/class/pwm/pwmchip0/export
-echo 40000 > /sys/class/pwm/pwmchip0/pwm1/period
-echo 40000 > /sys/class/pwm/pwmchip0/pwm1/duty_cycle
-echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable
+#UART0 TX - control left
+echo 3 > /sys/class/pwm/pwmchip0/export
+echo 40000 > /sys/class/pwm/pwmchip0/pwm3/period
+echo 40000 > /sys/class/pwm/pwmchip0/pwm3/duty_cycle
+echo 1 > /sys/class/pwm/pwmchip0/pwm3/enable
 
-#PH2 - control right
-echo 2 > /sys/class/pwm/pwmchip0/export
-echo 40000 > /sys/class/pwm/pwmchip0/pwm2/period
-echo 40000 > /sys/class/pwm/pwmchip0/pwm2/duty_cycle
-echo 1 > /sys/class/pwm/pwmchip0/pwm2/enable
+#UART0 RX  - control right
+echo 4 > /sys/class/pwm/pwmchip0/export
+echo 40000 > /sys/class/pwm/pwmchip0/pwm4/period
+echo 40000 > /sys/class/pwm/pwmchip0/pwm4/duty_cycle
+echo 1 > /sys/class/pwm/pwmchip0/pwm4/enable
 
 #PC8 - encoder left
 echo 72 > /sys/class/gpio/export
