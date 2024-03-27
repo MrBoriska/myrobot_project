@@ -2,14 +2,14 @@
 
 #PH3 - control left
 echo 1 > /sys/class/pwm/pwmchip0/export
-echo 20000000 > /sys/class/pwm/pwmchip0/pwm1/period
-echo 20000000 > /sys/class/pwm/pwmchip0/pwm1/duty_cycle
+echo 40000 > /sys/class/pwm/pwmchip0/pwm1/period
+echo 40000 > /sys/class/pwm/pwmchip0/pwm1/duty_cycle
 echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable
 
 #PH2 - control right
 echo 2 > /sys/class/pwm/pwmchip0/export
-echo 20000000 > /sys/class/pwm/pwmchip0/pwm2/period
-echo 20000000 > /sys/class/pwm/pwmchip0/pwm2/duty_cycle
+echo 40000 > /sys/class/pwm/pwmchip0/pwm2/period
+echo 40000 > /sys/class/pwm/pwmchip0/pwm2/duty_cycle
 echo 1 > /sys/class/pwm/pwmchip0/pwm2/enable
 
 #PC8 - encoder left
