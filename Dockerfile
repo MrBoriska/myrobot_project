@@ -1,7 +1,9 @@
 FROM osrf/ros:humble-desktop-full
 
 RUN apt update
-RUN apt install -y libboost-all-dev libi2c-dev
+RUN apt install -y libboost-all-dev libi2c-dev \
+    ros-humble-foxglove-bridge \
+    ros-humble-joint-state-publisher
 
 COPY .  /myrobot_project
 WORKDIR "/myrobot_project"

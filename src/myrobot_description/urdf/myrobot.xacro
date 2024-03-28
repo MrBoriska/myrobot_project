@@ -21,19 +21,48 @@
   </xacro:macro>
 
   <xacro:property name="base_link_mass" value="3.0" /><!-- please correct this -->
-  <xacro:property name="base_link_length" value="0.4" />
-  <xacro:property name="base_link_width" value="0.4" />
-  <xacro:property name="base_link_height" value="0.1" />
-  <xacro:property name="wheel_mass" value="20.0" /><!-- please correct this -->
+  <xacro:property name="base_link_length" value="0.22" />
+  <xacro:property name="base_link_width" value="0.22" />
+  <xacro:property name="base_link_height" value="0.053" />
+  <xacro:property name="wheel_mass" value="0.2" /><!-- please correct this -->
   <xacro:property name="wheel_radius" value="0.0315" /><!-- please correct this -->
+  <xacro:property name="wheel_height" value="0.015" /><!-- please correct this -->
   <xacro:property name="track" value="0.17" />
-  <xacro:property name="clearance" value="0.025" />
+  <xacro:property name="clearance" value="0.015" />
 
+  <link name="root_link"/>
 
   <joint name="base_to_root" type="fixed">
     <parent link="root_link"/>
     <child link="base_link"/>
     <origin xyz="0 0 ${base_link_height/2+clearance}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="lidar_link">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://myrobot_description/meshes/lds01rr.STL" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="red">
+        <color rgba="0.6 0.0 0.0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="base_to_lidar" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0 0 ${base_link_height/2 + 0.005}" rpy="0 0 0"/>
+  </joint>
+
+
+  <link name="imu_link"></link>
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="-0.038 0.024 ${-base_link_height/2 + 0.008}" rpy="0 0 ${-pi}"/>
   </joint>
 
   <xacro:macro name="base_link_geometry">
@@ -45,7 +74,10 @@
 
   <link name="base_link">
     <visual>
-      <xacro:base_link_geometry />
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://myrobot_description/meshes/base.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
       <material name="grey">
         <color rgba="0.6 0.6 0.6 1"/>
       </material>
@@ -69,7 +101,7 @@
         <geometry>
           <cylinder length="${wheel_height}" radius="${wheel_radius}"/>
         </geometry>
-        <origin xyz="0 0 0" rpy="0 0 ${pi/2+geometry_yaw}"/>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 ${geometry_yaw}"/>
         <material name="black">
           <color rgba="0.2 0.2 0.2 1"/>
         </material>
@@ -119,39 +151,19 @@
     </transmission>
   </xacro:macro>
 
-
-
   <xacro:wheel_joint
-    w_name="l_m"
+    w_name="l"
     origin_y="${track/2}"
     origin_x="0"
     origin_z="${wheel_radius-base_link_height/2-clearance}"
     geometry_yaw="0"/>
 
   <xacro:wheel_joint
-    w_name="r_m"
+    w_name="r"
     origin_y="${-track/2}"
     origin_x="0"
     origin_z="${wheel_radius-base_link_height/2-clearance}"
-    geometry_yaw="${pi}"/>
-
-  <!-- GPS -->
-  <link name="gps_link"></link>
-
-  <joint name="gps_joint" type="fixed">
-    <parent link="ctrlbox_link"/>
-    <child link="gps_link"/>
-    <origin xyz="0 -0.1 0.105" rpy="0 0 0"/>
-  </joint>
-
-  <gazebo>
-      <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
-        <robotNamespace>/</robotNamespace>
-        <!--controlPeriod>0.005</controlPeriod-->
-        <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
-        <legacyModeNS>true</legacyModeNS>
-      </plugin>
-  </gazebo>
+    geometry_yaw="0"/>
 
 
 </robot>

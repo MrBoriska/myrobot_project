@@ -12,7 +12,7 @@ import yaml
 def generate_launch_description():
 
     current_pkg_dir = get_package_share_path('myrobot_description')
-    default_rviz_config_path = current_pkg_dir / 'config/default.rviz'
+    default_rviz_config_path = current_pkg_dir / 'launch/default.rviz'
     ld = LaunchDescription([
         DeclareLaunchArgument(name='use_joy', default_value='true', choices=['true', 'false'],
                               description='Launch joy teleop'),
@@ -41,7 +41,7 @@ def generate_launch_description():
     # IMU driver
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource([get_package_share_directory('mpu9250driver'),
-            '/mpu9250driver_launch.py'])
+            '/launch/mpu9250driver_launch.py'])
         )
     )
 
@@ -49,10 +49,10 @@ def generate_launch_description():
     ld.add_action(Node(
         package='xv_11_driver',
         executable='xv_11_driver',
-        parameters={
+        parameters=[{
             "port": "/dev/ttyS5",
             "frame_id": "lidar_link"
-        },
+        }],
         output='screen'
     ))
 
@@ -81,18 +81,18 @@ def generate_launch_description():
     # ))
 
     # # RVIZ
-    # ld.add_action(Node(
-    #     package='rviz2',
-    #     executable='rviz2',
-    #     name='rviz2',
-    #     output='screen',
-    #     condition=IfCondition(LaunchConfiguration('use_rviz')),
-    #     arguments=['-d', LaunchConfiguration('rvizconfig')],
-    # ))
+    ld.add_action(Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('use_rviz')),
+        arguments=['-d', LaunchConfiguration('rvizconfig')],
+    ))
     
     ld.add_action(IncludeLaunchDescription(
         AnyLaunchDescriptionSource([get_package_share_directory('foxglove_bridge'),
-            '/foxglove_bridge_launch.xml'])
+            '/launch/foxglove_bridge_launch.xml'])
         )
     )
     return ld
