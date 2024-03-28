@@ -27,25 +27,25 @@ https://aliexpress.ru/item/1005004231727158.html?spm=a2g2w.orderdetail.0.0.65dd4
 
 Двигатели колес управляются двумя PWM аппаратно реализованых на пинах PWM3 (UART0 TX) и PWM4 (UART0 RX). Пример управления через терминал:
 
-PWM1 50HZ 5% Duty cycle
+PWM1 25kHZ 5% Duty cycle
 ```
 root@orangepi:~# echo 3 > /sys/class/pwm/pwmchip0/export
-root@orangepi:~# echo 20000000 > /sys/class/pwm/pwmchip0/pwm3/period
-root@orangepi:~# echo 1000000 > /sys/class/pwm/pwmchip0/pwm3/duty_cycle
+root@orangepi:~# echo 40000 > /sys/class/pwm/pwmchip0/pwm3/period
+root@orangepi:~# echo 40000 > /sys/class/pwm/pwmchip0/pwm3/duty_cycle
 root@orangepi:~# echo 1 > /sys/class/pwm/pwmchip0/pwm3/enable
 ```
 
-PWM2 50HZ 5% Duty cycle
+PWM2 25kHZ 5% Duty cycle
 
 ```
 root@orangepi:~# echo 4 > /sys/class/pwm/pwmchip0/export
-root@orangepi:~# echo 20000000 > /sys/class/pwm/pwmchip0/pwm4/period
-root@orangepi:~# echo 1000000 > /sys/class/pwm/pwmchip0/pwm4/duty_cycle
+root@orangepi:~# echo 40000 > /sys/class/pwm/pwmchip0/pwm4/period
+root@orangepi:~# echo 40000 > /sys/class/pwm/pwmchip0/pwm4/duty_cycle
 root@orangepi:~# echo 1 > /sys/class/pwm/pwmchip0/pwm4/enable
 ```
 
 100% - остановка, 0% максимальная скорость
-Необходимо подобрать частоту ШИМ такую, чтобы обеспечивался минимальный шум. 50гц
+Необходимо подобрать частоту ШИМ такую, чтобы обеспечивался минимальный шум. 25кГц выше порога в 20кГц, при котором человек слышит писк.
 
 ### Мотор-колесо
 https://aliexpress.ru/item/1005006213650744.html?spm=a2g2w.orderdetail.0.0.901d4aa6gsSRwk&sku_id=12000036308723032: 
