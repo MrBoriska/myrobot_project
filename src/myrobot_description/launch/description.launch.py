@@ -90,9 +90,9 @@ def generate_launch_description():
         arguments=['-d', LaunchConfiguration('rvizconfig')],
     ))
     
-    ld.add_action(IncludeLaunchDescription(
-        AnyLaunchDescriptionSource([get_package_share_directory('foxglove_bridge'),
-            '/launch/foxglove_bridge_launch.xml'])
-        )
-    )
+    # ld.add_action(IncludeLaunchDescription(
+    #     AnyLaunchDescriptionSource([get_package_share_directory('foxglove_bridge'),
+    #         '/launch/foxglove_bridge_launch.xml'])
+    #     )
+    # )
     return ld
