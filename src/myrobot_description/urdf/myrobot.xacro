@@ -40,7 +40,7 @@
 
   <link name="lidar_link">
     <visual>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <origin rpy="${pi} 0 0" xyz="0 0 0"/>
       <geometry>
         <mesh filename="package://myrobot_description/meshes/lds01rr.STL" scale="0.001 0.001 0.001"/>
       </geometry>
@@ -53,7 +53,7 @@
   <joint name="base_to_lidar" type="fixed">
     <parent link="base_link"/>
     <child link="lidar_link"/>
-    <origin xyz="0 0 ${base_link_height/2 + 0.005}" rpy="0 0 0"/>
+    <origin xyz="0 0 ${base_link_height/2 + 0.005}" rpy="${pi} 0 ${pi/4}"/>
   </joint>
 
 

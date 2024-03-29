@@ -10,7 +10,14 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+
+#include "tf2/LinearMath/Quaternion.h"
+#include "tf2/transform_datatypes.h"
+#include "tf2_ros/transform_broadcaster.h"
+
 
 #include "myrobot_description/pid.h"
 
@@ -32,9 +39,11 @@ class MyRobotDriverNode : public rclcpp::Node
 
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr sub_cmd;
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_js;
-    rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_odom;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> odom_tf;
 
     rclcpp::TimerBase::SharedPtr main_process;
+    rclcpp::TimerBase::SharedPtr odom_process;
     std::thread fb_lw_process;
     std::thread fb_rw_process;
 
@@ -65,7 +74,8 @@ class MyRobotDriverNode : public rclcpp::Node
     PID *rw_pid_regulator;
 
     sensor_msgs::msg::JointState js;
-
+    nav_msgs::msg::Odometry odom_msg;
+    geometry_msgs::msg::TransformStamped tf_msg;
 
 public:
     MyRobotDriverNode()
@@ -121,19 +131,42 @@ public:
         lw_pid_regulator = new PID(1.0, -1.0, lw_pid[0], lw_pid[1], lw_pid[2]);
         rw_pid_regulator = new PID(1.0, -1.0, rw_pid[0], rw_pid[1], rw_pid[2]);
 
-        parameter_callback_handle = this->add_on_set_parameters_callback(std::bind(&MyRobotDriverNode::parameter_change_callback, this, std::placeholders::_1));
-
         sub_cmd = this->create_subscription<geometry_msgs::msg::Twist>("cmd_vel", 10, std::bind(&MyRobotDriverNode::cmd_Callback, this, _1));
         pub_js = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", rclcpp::SensorDataQoS());
-
+        pub_odom = this->create_publisher<nav_msgs::msg::Odometry>("odom", rclcpp::SensorDataQoS());
 
         main_process = this->create_wall_timer(0.01s, std::bind(&MyRobotDriverNode::process, this));
+        odom_process = this->create_wall_timer(0.1s, std::bind(&MyRobotDriverNode::odometer, this));
 
         fb_lw_process = std::thread(&MyRobotDriverNode::feedback_left_wheel, this);
         fb_rw_process = std::thread(&MyRobotDriverNode::feedback_right_wheel, this);
 
         js.name = {"left_wheel", "right_wheel"};
         js.header = make_header(now());
+
+        // TF msg prepare
+		odom_tf = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+		tf_msg.header.frame_id = "odom"; 
+		tf_msg.child_frame_id = "root_link";
+
+		// Odom msg prepare
+		odom_msg.header.frame_id = "odom";
+		odom_msg.child_frame_id = "root_link";
+		odom_msg.pose.covariance =
+			{	.1,		.0,		.0,		.0,		.0,		.0,
+				.0,		.1,		.0,		.0,		.0,		.0,
+				.0,		.0,		1000000.0, 		.0,		.0,		.0,
+				.0,		.0,		.0,		1000000.0,		.0,		.0,
+				.0,		.0,		.0,		.0,		1000000.0,		.0,
+				.0,		.0,		.0,		.0,		.0,		.5		};
+		odom_msg.twist.covariance =
+			{	.1,		.0,		.0,		.0,		.0,		.0,
+				.0,		.1,		.0,		.0,		.0,		.0,
+				.0,		.0,		1000000.0, 		.0,		.0,		.0,
+				.0,		.0,		.0,		1000000.0,		.0,		.0,
+				.0,		.0,		.0,		.0,		1000000.0,		.0,
+				.0,		.0,		.0,		.0,		.0,		.5		};
+
     }
 
     ~MyRobotDriverNode() {
@@ -149,29 +182,6 @@ public:
 
         fb_lw_process.join();
         fb_rw_process.join();
-    }
-
-    rcl_interfaces::msg::SetParametersResult parameter_change_callback(const std::vector<rclcpp::Parameter> & parameters) {
-        rcl_interfaces::msg::SetParametersResult result;
-        result.successful = true;
-        for (const auto & param : parameters) {
-            RCLCPP_INFO(this->get_logger(), "Parameter changing process...");
-            // Check if the changed parameter is 'velocity_limit' and of type double.
-            if (param.get_name() == "lw_pid" && param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY) {
-                auto lw_pid = param.get_value<std::vector<float>>();
-                RCLCPP_INFO(this->get_logger(), "Parameter changed");
-                lw_pid_regulator->set_params(lw_pid[0], lw_pid[1], lw_pid[2]);
-            } else if (param.get_name() == "rw_pid" && param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY) {
-                auto rw_pid = param.get_value<std::vector<float>>();
-                RCLCPP_INFO(this->get_logger(), "Parameter changed");
-                rw_pid_regulator->set_params(rw_pid[0], rw_pid[1], rw_pid[2]);
-            } else {
-                // Mark the result as unsuccessful and provide a reason.
-                result.successful = false;
-                result.reason = "Unsupported parameter";
-            }
-        }
-        return result;
     }
 
     void cmd_Callback(const geometry_msgs::msg::Twist & msg)
@@ -264,6 +274,61 @@ public:
             lseek(fd_rw_int.fd, 0, 0); //return cursor to beginning of file or next read() will return EOF
         }
     }
+
+    void odometer()
+	{
+        static double th = 0.0;	
+		// Time (may be using timestep by joint_states?)
+		auto dT = 0.1;
+		auto T = now();
+
+		// Kinematic model
+		// TODO: need more model for 6x6 base
+		auto w = BASE_WHEEL_R*(r_speed_rad - l_speed_rad) / BASE_H;
+		th += w * dT;
+
+		auto V = BASE_WHEEL_R*(r_speed_rad + l_speed_rad) / 2;
+
+		auto Vx = V * cos(th);
+		auto Vy = V * sin(th);
+
+		//-------------------------
+		geometry_msgs::msg::Quaternion odom_quat = this->createQuaternionMsgFromYaw(th);
+
+		odom_msg.header.stamp = T;
+		odom_msg.pose.pose.position.x += Vx * dT;
+		odom_msg.pose.pose.position.y += Vy * dT;
+		odom_msg.pose.pose.position.z = .0;
+		odom_msg.pose.pose.orientation = odom_quat;
+		odom_msg.twist.twist.linear.x = Vx;
+		odom_msg.twist.twist.linear.y = Vy;
+		odom_msg.twist.twist.linear.z = .0;
+		odom_msg.twist.twist.angular.z = w;
+
+		tf_msg.header.stamp = now();
+		tf_msg.transform.translation.x = odom_msg.pose.pose.position.x;
+		tf_msg.transform.translation.y = odom_msg.pose.pose.position.y;
+		tf_msg.transform.translation.z = .0;
+		tf_msg.transform.rotation = odom_quat;
+
+		pub_odom->publish(odom_msg);
+		odom_tf->sendTransform(tf_msg);
+	}
+
+    geometry_msgs::msg::Quaternion createQuaternionMsgFromYaw(double yaw)
+	{
+		tf2::Quaternion q;
+		q.setRPY(0, 0, yaw);
+
+		geometry_msgs::msg::Quaternion q_msg;
+		q_msg.x = q.x();
+		q_msg.y = q.y();
+		q_msg.z = q.z();
+		q_msg.w = q.w();
+
+		return q_msg;
+	}
+
 
     std_msgs::msg::Header make_header(rclcpp::Time time)
     {
