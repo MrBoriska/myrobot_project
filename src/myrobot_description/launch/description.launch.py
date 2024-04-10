@@ -80,6 +80,14 @@ def generate_launch_description():
     #     condition=IfCondition(LaunchConfiguration('use_joy'))
     # ))
 
+    # Power Monitor
+    ld.add_action(Node(
+        package='myrobot_description',
+        executable='myrobot_pwrmon',
+        name="myrobot_pwrmon",
+        output='screen'
+    ))
+
     # # RVIZ
     ld.add_action(Node(
         package='rviz2',

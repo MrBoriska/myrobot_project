@@ -77,6 +77,8 @@
         "*.ipp": "cpp",
         "strstream": "cpp",
         "shared_mutex": "cpp",
-        "cfenv": "cpp"
+        "cfenv": "cpp",
+        "i2c.h": "c",
+        "ina226.h": "c"
     }
 }

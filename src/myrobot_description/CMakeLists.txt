@@ -23,12 +23,15 @@ include_directories(include/)
 add_executable(myrobot_driver src/myrobot_driver.cpp)
 ament_target_dependencies(myrobot_driver rclcpp geometry_msgs sensor_msgs nav_msgs tf2 tf2_ros)
 
+add_executable(myrobot_pwrmon src/myrobot_pwrmon.cpp src/pwrmon/i2c.c src/pwrmon/ina226.c)
+ament_target_dependencies(myrobot_pwrmon rclcpp sensor_msgs)
+
 target_include_directories(myrobot_driver PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_compile_features(myrobot_driver PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-install(TARGETS myrobot_driver
+install(TARGETS myrobot_driver myrobot_pwrmon
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch urdf meshes config
