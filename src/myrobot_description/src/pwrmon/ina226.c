@@ -45,7 +45,7 @@ float ina226_voltage(uint32_t i2c_master_port, uint8_t i2c_slave_addr)
 
 	iBusVoltage = i2c_read_short(i2c_master_port, i2c_slave_addr, INA226_BUS_VOLT_REG);
 	//printf("iBusVoltage = %04x\r\n", iBusVoltage);
-	fBusVoltage = (iBusVoltage) * 0.00125 * 0.96;
+	fBusVoltage = (iBusVoltage) * 0.00125;
 	//printf("Bus Voltage = %.2fV, ", fBusVoltage);
 
 	return (fBusVoltage);
