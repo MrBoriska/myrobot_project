@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -21,7 +22,10 @@ find_package(tf2_ros REQUIRED)
 include_directories(include/)
 
 add_executable(myrobot_driver src/myrobot_driver.cpp)
-ament_target_dependencies(myrobot_driver rclcpp geometry_msgs sensor_msgs nav_msgs tf2 tf2_ros)
+ament_target_dependencies(myrobot_driver rclcpp geometry_msgs sensor_msgs nav_msgs tf2 tf2_ros std_msgs)
+
+add_executable(myrobot_wheel_fb src/myrobot_wheel_fb.cpp)
+ament_target_dependencies(myrobot_wheel_fb rclcpp std_msgs)
 
 add_executable(myrobot_pwrmon src/myrobot_pwrmon.cpp src/pwrmon/i2c.c src/pwrmon/ina226.c)
 ament_target_dependencies(myrobot_pwrmon rclcpp sensor_msgs)
@@ -31,7 +35,7 @@ target_include_directories(myrobot_driver PUBLIC
   $<INSTALL_INTERFACE:include>)
 target_compile_features(myrobot_driver PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-install(TARGETS myrobot_driver myrobot_pwrmon
+install(TARGETS myrobot_driver myrobot_pwrmon myrobot_wheel_fb
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch urdf meshes config
