@@ -24,7 +24,7 @@ include_directories(include/)
 add_executable(myrobot_driver src/myrobot_driver.cpp)
 ament_target_dependencies(myrobot_driver rclcpp geometry_msgs sensor_msgs nav_msgs tf2 tf2_ros std_msgs)
 
-add_executable(myrobot_wheel_fb src/myrobot_wheel_fb.cpp)
+add_executable(myrobot_wheel_fb src/myrobot_wheel_fb.cpp src/oneeurofilter/OneEuroFilter.cpp)
 ament_target_dependencies(myrobot_wheel_fb rclcpp std_msgs)
 
 add_executable(myrobot_pwrmon src/myrobot_pwrmon.cpp src/pwrmon/i2c.c src/pwrmon/ina226.c)

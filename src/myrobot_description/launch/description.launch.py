@@ -67,32 +67,59 @@ def generate_launch_description():
     #     output='screen'
     # ))
 
-    ld.add_action(ComposableNodeContainer(
-            name='image_container',
-            namespace='',
-            package='rclcpp_components',
-            executable='component_container',
-            composable_node_descriptions=[
-                ComposableNode(
-                    package='myrobot_description',
-                    executable='myrobot_wheel_fb',
-                    name='left_wheel_fb',
-                    parameters=[{"fd":"/sys/class/gpio/gpio72/value"}],
-                    extra_arguments=[{'use_intra_process_comms': True}]),
-                ComposableNode(
-                    package='myrobot_description',
-                    executable='myrobot_wheel_fb',
-                    name='right_wheel_fb',
-                    parameters=[{"fd":"/sys/class/gpio/gpio74/value"}],
-                    extra_arguments=[{'use_intra_process_comms': True}]),
-                ComposableNode(
-                    package='myrobot_description',
-                    executable='myrobot_driver',
-                    name='myrobot_driver',
-                    extra_arguments=[{'use_intra_process_comms': True}])
-            ],
-            output='both',
+
+    ld.add_action(Node(
+        package='myrobot_description',
+        executable='myrobot_wheel_fb',
+        name='myrobot_wheel_fb',
+        namespace='left_wheel',
+        parameters=[{"fd":"/sys/class/gpio/gpio72/value"}],
+        prefix="nice -n -18",
+        output='screen'
     ))
+    ld.add_action(Node(
+        package='myrobot_description',
+        executable='myrobot_wheel_fb',
+        name='myrobot_wheel_fb',
+        namespace='right_wheel',
+        parameters=[{"fd":"/sys/class/gpio/gpio74/value"}],
+        prefix="nice -n -18",
+        output='screen'
+    ))
+    ld.add_action(Node(
+        package='myrobot_description',
+        executable='myrobot_driver',
+        name='myrobot_driver',
+        prefix="nice -n -18",
+        output='screen'
+    ))
+
+    # ld.add_action(ComposableNodeContainer(
+    #         name='image_container',
+    #         namespace='',
+    #         package='rclcpp_components',
+    #         executable='component_container',
+    #         composable_node_descriptions=[
+    #             ComposableNode(
+    #                 package='myrobot_description',
+    #                 executable='myrobot_wheel_fb',
+    #                 name='left_wheel',
+    #                 parameters=[{"fd":"/sys/class/gpio/gpio72/value"}],
+    #                 extra_arguments=[{'use_intra_process_comms': True}]),
+    #             ComposableNode(
+    #                 package='myrobot_description',
+    #                 executable='myrobot_wheel_fb',
+    #                 name='right_wheel',
+    #                 parameters=[{"fd":"/sys/class/gpio/gpio74/value"}],
+    #                 extra_arguments=[{'use_intra_process_comms': True}]),
+    #             ComposableNode(
+    #                 package='myrobot_description',
+    #                 executable='myrobot_driver',
+    #                 name='myrobot_driver',
+    #                 extra_arguments=[{'use_intra_process_comms': True}])
+    #         ],
+    #         output='both',
+    # ))
 
     # # Wheel odometry
     # ld.add_action(Node(

@@ -9,7 +9,9 @@
 #include <poll.h>
 
 #include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/Float64.hpp"
+#include "std_msgs/msg/float64.hpp"
+
+#include "myrobot_description/oneeurofilter/OneEuroFilter.h"
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -21,11 +23,19 @@ class MyRobotDriverNode : public rclcpp::Node
 {
 
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr pub_fb;
+    rclcpp::TimerBase::SharedPtr main_process;
+    rclcpp::TimerBase::SharedPtr pub_process;
 
     struct pollfd fd_w_int;
 
     double pos_t = 0.0;
     double speed = 0.0;
+
+    double frequency = 120 ; // Hz
+    double mincutoff = 1.0 ; // Hz
+    double beta = 0.1 ;      
+    double dcutoff = 1.0 ; 
+    OneEuroFilter *f;
 
 public:
     MyRobotDriverNode()
@@ -44,48 +54,39 @@ public:
 
         pub_fb = this->create_publisher<std_msgs::msg::Float64>("feedback", rclcpp::SensorDataQoS());
 
-        this->feedback_wheel();
+        main_process = this->create_wall_timer(0.0s, std::bind(&MyRobotDriverNode::feedback_wheel, this));
+        pub_process = this->create_wall_timer(0.02s, std::bind(&MyRobotDriverNode::pub_wheel, this));
+
+        f = new OneEuroFilter(120.0, 1.0, 0.1, 1.0);
     }
 
     ~MyRobotDriverNode() {
         if (fd_w_int.fd != -1) close(fd_w_int.fd);
+        delete f;
+    }
+
+    void pub_wheel() {
+        std_msgs::msg::Float64 msg;
+        msg.data = speed;
+        pub_fb->publish(msg);
     }
 
     void feedback_wheel() {
-        while(rclcpp::ok()) {
-            poll(&fd_w_int, 1, 150); //poll(struct pollfd, max fd, timeout), timeout=-1 --> never
-            if(fd_w_int.revents & POLLPRI || fd_w_int.revents & POLLERR) {
-                char buf[1];
-                read(fd_w_int.fd, buf, 1);  //mandatory to make system register interrupt as served
-                if (buf[0] == '0') {
-                    speed = 1.0/(now().seconds()-pos_t);
-                    speed = M_PI*speed/TICKS_IN_ROTATE;
-                    pos_t = now().seconds();
-                }
-            } else {
-                speed = 0.0;
+        poll(&fd_w_int, 1, 150); //poll(struct pollfd, max fd, timeout), timeout=-1 --> never
+        if(fd_w_int.revents & POLLPRI || fd_w_int.revents & POLLERR) {
+            char buf[1];
+            read(fd_w_int.fd, buf, 1);  //mandatory to make system register interrupt as served
+            if (buf[0] == '0') {
+                speed = 1.0/(now().seconds()-pos_t);
+                speed = M_PI*speed/TICKS_IN_ROTATE;
+                pos_t = now().seconds();
+                speed = f->filter(speed, pos_t);
             }
-
-            std_msgs::msg::Float64::UniquePtr msg(new std_msgs::msg::Float64());
-            msg->data = speed;
-            pub_fb->pub(std::move(msg));
-
-            lseek(fd_w_int.fd, 0, 0); //return cursor to beginning of file or next read() will return EOF
+        } else {
+            speed = 0.0;
         }
-    }
 
-    void odometer()
-	{
-        
-	}
-
-    std_msgs::msg::Header make_header(rclcpp::Time time)
-    {
-        std_msgs::msg::Header header;
-        header.stamp.sec = time.seconds();
-        header.stamp.nanosec = time.nanoseconds();
-        header.frame_id = "base_link";
-        return header;
+        lseek(fd_w_int.fd, 0, 0); //return cursor to beginning of file or next read() will return EOF
     }
 
 };

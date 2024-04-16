@@ -13,6 +13,7 @@
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "std_msgs/msg/float64.hpp"
 
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2/transform_datatypes.h"
@@ -44,29 +45,21 @@ class MyRobotDriverNode : public rclcpp::Node
 
     rclcpp::TimerBase::SharedPtr main_process;
     rclcpp::TimerBase::SharedPtr odom_process;
-    std::thread fb_lw_process;
-    std::thread fb_rw_process;
+    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr lw_fb;
+    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr rw_fb;
 
     int fd_lw_pwm;
     int fd_rw_pwm;
     int fd_lw_dir;
     int fd_rw_dir;
-    struct pollfd fd_lw_int;
-    struct pollfd fd_rw_int;
     int fd_w_brake;
 
-    double wheel_l = 0.0;
-    double wheel_r = 0.0;
+    double wheel_l_v_cmd = 0.0;
+    double wheel_r_v_cmd = 0.0;
 
-    //double l_pos = 0.0;
-    //double r_pos = 0.0;
-    double l_pos_t = 0.0;
-    double r_pos_t = 0.0;
     double l_speed = 0.0;
     double r_speed = 0.0;
 
-    double l_pos_rad = 0.0;
-    double r_pos_rad = 0.0;
     double l_speed_rad = 0.0;
     double r_speed_rad = 0.0;
 
@@ -108,18 +101,6 @@ public:
             perror("Unable to open /sys/class/gpio/gpio70/value");
             exit(1);
         }
-        fd_lw_int.fd = open("/sys/class/gpio/gpio72/value", O_RDONLY);
-        fd_lw_int.events = POLLPRI|POLLERR;
-        if (fd_lw_int.fd == -1) {
-            perror("Unable to open /sys/class/gpio/gpio72/value");
-            exit(1);
-        }
-        fd_rw_int.fd = open("/sys/class/gpio/gpio74/value", O_RDONLY);
-        fd_rw_int.events = POLLPRI|POLLERR;
-        if (fd_rw_int.fd == -1) {
-            perror("Unable to open /sys/class/gpio/gpio74/value");
-            exit(1);
-        }
         fd_w_brake = open("/sys/class/gpio/gpio73/value", O_WRONLY|O_CLOEXEC);
         if (fd_lw_dir == -1) {
             perror("Unable to open /sys/class/gpio/gpio73/value");
@@ -138,8 +119,9 @@ public:
         main_process = this->create_wall_timer(0.01s, std::bind(&MyRobotDriverNode::process, this));
         odom_process = this->create_wall_timer(0.1s, std::bind(&MyRobotDriverNode::odometer, this));
 
-        fb_lw_process = std::thread(&MyRobotDriverNode::feedback_left_wheel, this);
-        fb_rw_process = std::thread(&MyRobotDriverNode::feedback_right_wheel, this);
+        lw_fb = this->create_subscription<std_msgs::msg::Float64>("left_wheel/feedback", rclcpp::SensorDataQoS(), std::bind(&MyRobotDriverNode::lw_fb_Callback, this, _1));
+        rw_fb = this->create_subscription<std_msgs::msg::Float64>("right_wheel/feedback", rclcpp::SensorDataQoS(), std::bind(&MyRobotDriverNode::rw_fb_Callback, this, _1));
+        
 
         js.name = {"left_wheel", "right_wheel"};
         js.header = make_header(now());
@@ -176,18 +158,23 @@ public:
         if (fd_rw_pwm != -1) close(fd_rw_pwm);
         if (fd_lw_dir != -1) close(fd_lw_dir);
         if (fd_rw_dir != -1) close(fd_rw_dir);
-        if (fd_lw_int.fd != -1) close(fd_lw_int.fd);
-        if (fd_rw_int.fd != -1) close(fd_rw_int.fd);
         if (fd_w_brake != -1) close(fd_w_brake);
-
-        fb_lw_process.join();
-        fb_rw_process.join();
     }
 
     void cmd_Callback(const geometry_msgs::msg::Twist & msg)
     {   
-        wheel_l = (msg.linear.x - msg.angular.z * BASE_H/2)/BASE_WHEEL_R;
-        wheel_r = (msg.linear.x + msg.angular.z * BASE_H/2)/BASE_WHEEL_R;
+        wheel_l_v_cmd = (msg.linear.x - msg.angular.z * BASE_H/2)/BASE_WHEEL_R;
+        wheel_r_v_cmd = (msg.linear.x + msg.angular.z * BASE_H/2)/BASE_WHEEL_R;
+    }
+
+    void lw_fb_Callback(const std_msgs::msg::Float64 & msg)
+    {
+        l_speed = msg.data;
+    }
+
+    void rw_fb_Callback(const std_msgs::msg::Float64 & msg)
+    {
+        r_speed = msg.data;
     }
 
     void set_vels(double lw, double rw) {
@@ -215,12 +202,12 @@ public:
         double r_pos_rad = r_speed_rad*0.01;
         
         // Current speed
-        l_speed_rad = ((l_speed_rad > 0) ? 1.0 : -1.0)*M_PI*l_speed/TICKS_IN_ROTATE;
-        r_speed_rad = ((r_speed_rad > 0) ? 1.0 : -1.0)*M_PI*r_speed/TICKS_IN_ROTATE;
+        l_speed_rad = ((l_speed_rad > 0) ? 1.0 : -1.0)*l_speed;
+        r_speed_rad = ((r_speed_rad > 0) ? 1.0 : -1.0)*r_speed;
 
         // Calculate control value (pwm)
-        float lw_delta = apply_limit(wheel_l*0.3+lw_pid_regulator->calculate((wheel_l-l_speed_rad), 0.01), -1.0, 1.0);
-        float rw_delta = apply_limit(wheel_r*0.3+rw_pid_regulator->calculate((wheel_r-r_speed_rad), 0.01), -1.0, 1.0);
+        float lw_delta = apply_limit(wheel_l_v_cmd*0.3+lw_pid_regulator->calculate((wheel_l_v_cmd-l_speed_rad), 0.01), -1.0, 1.0);
+        float rw_delta = apply_limit(wheel_r_v_cmd*0.3+rw_pid_regulator->calculate((wheel_r_v_cmd-r_speed_rad), 0.01), -1.0, 1.0);
 
         //printf("%.2f, %.2f, %.2f, %.2f\n", wheel_l, l_speed_rad, wheel_r, r_speed_rad);
 
@@ -235,44 +222,8 @@ public:
         //js.header = make_header(now());
         js.position = {l_pos_rad, r_pos_rad};
         js.velocity = {l_speed_rad, r_speed_rad};
-        js.effort = {wheel_l, wheel_r}; //TODO: set target velocity for debug
+        js.effort = {wheel_l_v_cmd, wheel_r_v_cmd}; //TODO: set target velocity for debug
         pub_js->publish(js);
-    }
-
-    void feedback_left_wheel() {
-        while(rclcpp::ok()) {
-            poll(&fd_lw_int, 1, 150); //poll(struct pollfd, max fd, timeout), timeout=-1 --> never
-            if(fd_lw_int.revents & POLLPRI || fd_lw_int.revents & POLLERR) {
-                char buf[1];
-                read(fd_lw_int.fd, buf, 1);  //mandatory to make system register interrupt as served
-                if (buf[0] == '0') {
-                    //printf("LW interrupt! %d\n", int(buf[0]));
-                    l_speed = 1.0/(now().seconds()-l_pos_t);
-                    l_pos_t = now().seconds();
-                }
-            } else {
-                l_speed = 0.0;
-            }
-            lseek(fd_lw_int.fd, 0, 0); //return cursor to beginning of file or next read() will return EOF
-        }
-    }
-
-    void feedback_right_wheel() {
-        while(rclcpp::ok()) {
-            poll(&fd_rw_int, 1, 150); //poll(struct pollfd, max fd, timeout), timeout=-1 --> never
-            if(fd_rw_int.revents & POLLPRI || fd_rw_int.revents & POLLERR) {
-                char buf[1];
-                read(fd_rw_int.fd, buf, 1);  //mandatory to make system register interrupt as served
-                if (buf[0] == '0') {
-                    //printf("RW interrupt! %d\n", int(buf[0]));
-                    r_speed = 1.0/(now().seconds()-r_pos_t);
-                    r_pos_t = now().seconds();
-                }
-            } else {
-                r_speed = 0.0;
-            }
-            lseek(fd_rw_int.fd, 0, 0); //return cursor to beginning of file or next read() will return EOF
-        }
     }
 
     void odometer()

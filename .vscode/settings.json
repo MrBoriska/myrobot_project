@@ -79,6 +79,8 @@
         "shared_mutex": "cpp",
         "cfenv": "cpp",
         "i2c.h": "c",
-        "ina226.h": "c"
+        "ina226.h": "c",
+        "hash_map": "cpp",
+        "hash_set": "cpp"
     }
 }
