@@ -39,7 +39,7 @@ class MyRobotDriverNode : public rclcpp::Node
 
 public:
     MyRobotDriverNode()
-        : Node("myrobot_wheel_fb")
+        : Node("myrobot_wheel_fb", rclcpp::NodeOptions().use_intra_process_comms(true))
     {
         this->declare_parameter("fd", "/sys/class/gpio/gpio74/value");
 
@@ -66,9 +66,9 @@ public:
     }
 
     void pub_wheel() {
-        std_msgs::msg::Float64 msg;
-        msg.data = speed;
-        pub_fb->publish(msg);
+        std_msgs::msg::Float64::UniquePtr msg(new std_msgs::msg::Float64());
+        msg->data = speed;
+        pub_fb->publish(std::move(msg));
     }
 
     void feedback_wheel() {

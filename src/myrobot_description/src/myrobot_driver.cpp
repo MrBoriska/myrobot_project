@@ -72,7 +72,7 @@ class MyRobotDriverNode : public rclcpp::Node
 
 public:
     MyRobotDriverNode()
-        : Node("myrobot_driver")
+        : Node("myrobot_driver", rclcpp::NodeOptions().use_intra_process_comms(true))
     {
         //this->declare_parameter("map_filepath", "map.json");
         this->declare_parameter("lw_pid", std::vector<float>{0.5, 0.00, 0.0});
@@ -167,14 +167,14 @@ public:
         wheel_r_v_cmd = (msg.linear.x + msg.angular.z * BASE_H/2)/BASE_WHEEL_R;
     }
 
-    void lw_fb_Callback(const std_msgs::msg::Float64 & msg)
+    void lw_fb_Callback(const std_msgs::msg::Float64::UniquePtr msg)
     {
-        l_speed = msg.data;
+        l_speed = msg->data;
     }
 
-    void rw_fb_Callback(const std_msgs::msg::Float64 & msg)
+    void rw_fb_Callback(const std_msgs::msg::Float64::UniquePtr msg)
     {
-        r_speed = msg.data;
+        r_speed = msg->data;
     }
 
     void set_vels(double lw, double rw) {
@@ -286,7 +286,7 @@ public:
         std_msgs::msg::Header header;
         header.stamp.sec = time.seconds();
         header.stamp.nanosec = time.nanoseconds();
-        header.frame_id = "base_link";
+        header.frame_id = "root_link";
         return header;
     }
 
