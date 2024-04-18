@@ -4,3 +4,6 @@
 [submodule "Linux_PowerMeter"]
 	path = Linux_PowerMeter
 	url = https://github.com/craigpeacock/Linux_PowerMeter.git
+[submodule "src/imu_tools"]
+	path = src/imu_tools
+	url = https://github.com/CCNYRoboticsLab/imu_tools.git

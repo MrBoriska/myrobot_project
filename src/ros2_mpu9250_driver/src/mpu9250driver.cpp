@@ -35,7 +35,7 @@ MPU9250Driver::MPU9250Driver() : Node("mpu9250publisher")
   mpu9250_->printConfig();
   mpu9250_->printOffsets();
   // Create publisher
-  publisher_ = this->create_publisher<sensor_msgs::msg::Imu>("imu", 10);
+  publisher_ = this->create_publisher<sensor_msgs::msg::Imu>("imu/data_raw", 10);
   std::chrono::duration<int64_t, std::milli> frequency =
       1000ms / this->get_parameter("gyro_range").as_int();
   timer_ = this->create_wall_timer(frequency, std::bind(&MPU9250Driver::handleInput, this));
@@ -45,16 +45,16 @@ void MPU9250Driver::handleInput()
 {
   auto message = sensor_msgs::msg::Imu();
   message.header.stamp = this->get_clock()->now();
-  message.header.frame_id = "base_link";
+  message.header.frame_id = "imu_link";
   // Direct measurements
   message.linear_acceleration_covariance = {0};
   message.linear_acceleration.x = mpu9250_->getAccelerationX();
   message.linear_acceleration.y = mpu9250_->getAccelerationY();
   message.linear_acceleration.z = mpu9250_->getAccelerationZ();
   message.angular_velocity_covariance[0] = {0};
-  message.angular_velocity.x = mpu9250_->getAngularVelocityX();
-  message.angular_velocity.y = mpu9250_->getAngularVelocityY();
-  message.angular_velocity.z = mpu9250_->getAngularVelocityZ();
+  message.angular_velocity.x = mpu9250_->getAngularVelocityX()*M_PI/180.0;
+  message.angular_velocity.y = mpu9250_->getAngularVelocityY()*M_PI/180.0;
+  message.angular_velocity.z = mpu9250_->getAngularVelocityZ()*M_PI/180.0;
   // Calculate euler angles, convert to quaternion and store in message
   message.orientation_covariance = {0};
   //calculateOrientation(message);

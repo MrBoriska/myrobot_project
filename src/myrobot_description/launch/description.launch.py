@@ -47,6 +47,31 @@ def generate_launch_description():
         )
     )
 
+    ld.add_action(Node(
+        package='imu_filter_madgwick',
+        executable='imu_filter_madgwick_node',
+        parameters=[{
+            "stateless": False,
+            "use_mag": False,
+            "publish_tf": False,
+            "reverse_tf": False,
+            "fixed_frame": "odom",
+            "constant_dt": 0.0,
+            "publish_debug_topics": False,
+            "world_frame": "enu",
+            "gain": 0.1,
+            "zeta": 0.0,
+            "mag_bias_x": 0.0,
+            "mag_bias_y": 0.0,
+            "mag_bias_z": 0.0,
+            "orientation_stddev": 0.0,
+        }],
+        remappings=[
+            ('/imu/data', '/imu')
+        ],
+        output='screen'
+    ))
+
     # Lidar driver
     ld.add_action(Node(
         package='xv_11_driver',
@@ -74,7 +99,7 @@ def generate_launch_description():
         name='myrobot_wheel_fb',
         namespace='left_wheel',
         parameters=[{"fd":"/sys/class/gpio/gpio72/value"}],
-        prefix="nice -n -18",
+        #prefix="nice -n -18",
         output='screen'
     ))
     ld.add_action(Node(
@@ -83,14 +108,14 @@ def generate_launch_description():
         name='myrobot_wheel_fb',
         namespace='right_wheel',
         parameters=[{"fd":"/sys/class/gpio/gpio74/value"}],
-        prefix="nice -n -18",
+        #prefix="nice -n -18",
         output='screen'
     ))
     ld.add_action(Node(
         package='myrobot_description',
         executable='myrobot_driver',
         name='myrobot_driver',
-        prefix="nice -n -18",
+        #prefix="nice -n -18",
         output='screen'
     ))
 
