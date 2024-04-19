@@ -138,7 +138,7 @@ namespace xv_11_driver {
 	      if(raw_bytes[i] == 0xFA && raw_bytes[i+1] == (0xA0+i/22)) {//&& CRC check
 		good_sets++;
 		motor_speed += (raw_bytes[i+3] << 8) + raw_bytes[i+2]; //accumulate count for avg. time increment
-       		rpms=(raw_bytes[i+3]<<8|raw_bytes[i+2])/64; 
+       	rpms=(raw_bytes[i+3]<<8|raw_bytes[i+2])/64;
 		
 		for(uint16_t j = i+4; j < i+20; j=j+4) {
 		  index = (4*i)/22 + (j-4-i)/4;

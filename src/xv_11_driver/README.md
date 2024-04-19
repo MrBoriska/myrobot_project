@@ -32,5 +32,8 @@ Run the driver using a different frame_id
 
 If all goes well this will produce messages of type LaserScan on topic /scan
 
-    
+
+check speed:
+
+    ros2 topic echo /scan --filter 'print(m.time_increment*1e8/64)'
 

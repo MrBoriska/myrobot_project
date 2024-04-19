@@ -2,12 +2,10 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import Command, LaunchConfiguration
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, GroupAction
 from ament_index_python.packages import get_package_share_directory, get_package_share_path
 from launch_ros.parameter_descriptions import ParameterValue
 from launch.launch_description_sources import AnyLaunchDescriptionSource, PythonLaunchDescriptionSource
-from launch_ros.actions import ComposableNodeContainer
-from launch_ros.descriptions import ComposableNode
 import os
 import yaml
 
@@ -33,12 +31,6 @@ def generate_launch_description():
             'robot_description': robot_description
         }]
     ))
-
-    # ld.add_action(Node(
-    #     package='joint_state_publisher',
-    #     executable='joint_state_publisher'
-    # ))
-
 
     # IMU driver
     ld.add_action(IncludeLaunchDescription(
@@ -85,38 +77,34 @@ def generate_launch_description():
 
 
     # Controller
-    # ld.add_action(Node(
-    #     package='myrobot_description',
-    #     executable='myrobot_driver',
-    #     name="myrobot_driver",
-    #     output='screen'
-    # ))
-
-
-    ld.add_action(Node(
-        package='myrobot_description',
-        executable='myrobot_wheel_fb',
-        name='myrobot_wheel_fb',
-        namespace='left_wheel',
-        parameters=[{"fd":"/sys/class/gpio/gpio72/value"}],
-        #prefix="nice -n -18",
-        output='screen'
-    ))
-    ld.add_action(Node(
-        package='myrobot_description',
-        executable='myrobot_wheel_fb',
-        name='myrobot_wheel_fb',
-        namespace='right_wheel',
-        parameters=[{"fd":"/sys/class/gpio/gpio74/value"}],
-        #prefix="nice -n -18",
-        output='screen'
-    ))
-    ld.add_action(Node(
-        package='myrobot_description',
-        executable='myrobot_driver',
-        name='myrobot_driver',
-        #prefix="nice -n -18",
-        output='screen'
+    ld.add_action(GroupAction(
+        actions=[
+            Node(
+                package='myrobot_description',
+                executable='myrobot_wheel_fb',
+                name='myrobot_wheel_fb',
+                namespace='left_wheel',
+                parameters=[{"fd":"/sys/class/gpio/gpio72/value"}],
+                #prefix="nice -n -18",
+                output='screen'
+            ),
+            Node(
+                package='myrobot_description',
+                executable='myrobot_wheel_fb',
+                name='myrobot_wheel_fb',
+                namespace='right_wheel',
+                parameters=[{"fd":"/sys/class/gpio/gpio74/value"}],
+                #prefix="nice -n -18",
+                output='screen'
+            ),
+            Node(
+                package='myrobot_description',
+                executable='myrobot_driver',
+                name='myrobot_driver',
+                #prefix="nice -n -18",
+                output='screen'
+            )
+        ]
     ))
 
     # ld.add_action(ComposableNodeContainer(
