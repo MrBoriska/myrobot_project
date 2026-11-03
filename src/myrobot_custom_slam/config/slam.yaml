@@ -1,0 +1,60 @@
+# SLAM parameters for the real robot (Orange Pi Zero 3 + LDS01RR + MPU9250).
+#
+# Tuning notes
+#   * measurement_sigma: LDS01RR range noise is ~1-2 cm indoors, keep 0.02.
+#   * max_residual / huber_delta gate the correspondences; loosening them makes
+#     the filter follow moving obstacles, tightening them loses walls at range.
+#   * voxel_cell_size 0.10 m keeps the map small enough for the 1-4 GB LPDDR4 of
+#     the Zero 3 (40000 cells * 176 B ~= 7 MB worst case).
+#   * max_range: LDS01RR is reliable up to ~6 m indoors; beyond that the returns
+#     are too sparse for a stable line fit.
+
+/**:
+  ros__parameters:
+    scan_topic: /scan
+    imu_topic: /imu/data_raw
+    map_frame: map
+    odom_frame: odom
+    base_frame: base_link
+    publish_tf: true
+    deskew: true
+    planar: true
+
+    min_range: 0.12
+    max_range: 6.0
+
+    voxel_cell_size: 0.10
+    voxel_max_points_per_cell: 12
+    voxel_max_cells: 40000
+    voxel_min_point_spacing: 0.02
+    line_max_eigen_ratio: 0.20
+    line_min_eigen_spread: 0.0001
+    line_min_neighbours: 5
+    max_correspondence_dist: 0.60
+
+    max_iterations: 4
+    converge_eps: 0.001
+    measurement_sigma: 0.02
+    huber_delta: 0.06
+    max_residual: 0.25
+    min_points: 30
+
+    init_samples: 100
+    init_max_gyro: 0.60
+    acc_noise: 0.015
+    gyro_noise: 0.0004
+    acc_bias_noise: 0.0001
+    gyro_bias_noise: 0.00001
+
+    # Extrinsics derived from urdf/myrobot.xacro:
+    #   base_to_lidar: xyz="0 0 0.0315" rpy="pi 0 pi/4"
+    #   imu_joint:     xyz="-0.038 0.024 -0.0185" rpy="0 0 -pi"
+    lidar_to_imu_rpy: [3.141592653589793, 0.0, -2.356194490192345]
+    lidar_to_imu_xyz: [-0.038, 0.024, 0.05]
+    base_to_imu_rpy: [0.0, 0.0, -3.141592653589793]
+    base_to_imu_xyz: [-0.038, 0.024, -0.0185]
+
+    map_publish_rate: 0.5
+    map_resolution: 0.05
+    map_max_extent: 40.0
+    publish_registered_scan: true

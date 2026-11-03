@@ -109,3 +109,49 @@ colcon build
 sudo chmod 0666 /dev/ttyS5
 ros2 run xv_11_driver xv_11_driver --ros-args -p port:=/dev/ttyS5 -p frame_id:=xv11_scan
 ```
+
+## SLAM
+
+Пакет `src/myrobot_custom_slam` — собственный SLAM на IMU + лидаре по
+формулировке FAST-LIO2, оптимизированный под Orange Pi Zero 3 (подробности,
+замеры и тюнинг: [docs/slam_design.md](docs/slam_design.md)).
+
+Коротко: iterated error-state Kalman filter (18 DoF), распространение по IMU на
+100 Гц, прямой point-to-line скан-матчинг по сырому скану, компенсация искажений
+скана (deskew) по истории поз, ограниченная по памяти хэш-сетка 0.1 м вместо
+дерева, проекция на SE(2) (одноплоскостной лидар не наблюдает z/roll/pitch).
+Публикует `map -> odom`, `nav_msgs/OccupancyGrid` на `/map` и
+`/slam/registered_scan`.
+
+Полный стек на роботе:
+
+```
+ros2 launch myrobot_custom_slam slam.launch.py use_rviz:=true
+```
+
+Симуляция (Gazebo + URDF с плагинами diff_drive/ray/imu + SLAM):
+
+```
+ros2 launch myrobot_custom_slam slam_gazebo.launch.py
+```
+
+Отдельно (если драйверы уже подняты):
+
+```
+ros2 run myrobot_custom_slam slam_node --ros-args \
+  --params-file $(ros2 pkg prefix myrobot_custom_slam)/share/myrobot_custom_slam/config/slam.yaml
+```
+
+Тесты и бенчмарк ядра:
+
+```
+colcon test --packages-select myrobot_custom_slam
+ros2 run myrobot_custom_slam bench_slam 720 300
+```
+
+Важно: `myrobot_driver` публикует одометрию как `odom -> base_link` (стандарт
+REP-105), имена джойнтов в `joint_states` — `base_to_l_wheel` /
+`base_to_r_wheel`, геометрия (`wheel_radius`, `track`) вынесена в параметры
+(по умолчанию — как в URDF: 0.0315 м и 0.17 м). Если реальные колёса другие —
+задать через `--ros-args -p wheel_radius:=... -p track:=...`, иначе одометрия и
+`map -> odom` будут систематически смещены.
