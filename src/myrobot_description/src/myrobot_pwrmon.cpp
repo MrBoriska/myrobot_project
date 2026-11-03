@@ -1,3 +1,5 @@
+#include <string>
+
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/battery_state.hpp"
 
@@ -18,15 +20,30 @@ class MyRobotPwrMonNode : public rclcpp::Node
 
     rclcpp::TimerBase::SharedPtr process;
 
+    double v_min_ = 10.0;
+    double v_max_ = 12.6;
     uint32_t hI2C;
     unsigned char i2caddr = 0x44;
-    char * devname = "/dev/i2c-3";
+    const char * devname = "/dev/i2c-3";
+    std::string devname_;
 
 public:
     MyRobotPwrMonNode()
         : Node("myrobot_pwrmon")
     {
-        hI2C = i2c_init(devname);
+        // 3S Li-ion pack behind an INA226 on the I2C-3 bus of the Orange Pi.
+        this->declare_parameter("device", "/dev/i2c-3");
+        this->declare_parameter("address", 0x44);
+        this->declare_parameter("cell_min_voltage", 10.0);
+        this->declare_parameter("cell_max_voltage", 12.6);
+
+        devname_ = this->get_parameter("device").as_string();
+        devname = devname_.c_str();
+        i2caddr = static_cast<unsigned char>(this->get_parameter("address").as_int());
+        v_min_ = this->get_parameter("cell_min_voltage").as_double();
+        v_max_ = this->get_parameter("cell_max_voltage").as_double();
+
+        hI2C = i2c_init(const_cast<char *>(devname));
         ina226_init(hI2C, i2caddr);
 
         pub_battery = this->create_publisher<sensor_msgs::msg::BatteryState>("battery", rclcpp::SensorDataQoS());
@@ -45,8 +62,13 @@ public:
         bat_msg.current = -ina226_current(hI2C, i2caddr);
         //ina226_power(hI2C, i2caddr)
         bat_msg.charge = (bat_msg.current > 0) ? bat_msg.current : 0.0;
-        if (bat_msg.voltage > 12.6) bat_msg.percentage = 1.0;
-        else bat_msg.percentage = (bat_msg.voltage-10.0)/(12.6-10.0);
+        if (bat_msg.voltage > v_max_) {
+            bat_msg.percentage = 1.0f;
+        } else if (bat_msg.voltage < v_min_) {
+            bat_msg.percentage = 0.0f;
+        } else {
+            bat_msg.percentage = static_cast<float>((bat_msg.voltage - v_min_) / (v_max_ - v_min_));
+        }
 
         pub_battery->publish(bat_msg);
     }

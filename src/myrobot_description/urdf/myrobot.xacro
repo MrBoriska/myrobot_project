@@ -30,13 +30,8 @@
   <xacro:property name="track" value="0.17" />
   <xacro:property name="clearance" value="0.015" />
 
-  <link name="root_link"/>
-
-  <joint name="base_to_root" type="fixed">
-    <parent link="root_link"/>
-    <child link="base_link"/>
-    <origin xyz="0 0 ${base_link_height/2+clearance}" rpy="0 0 0"/>
-  </joint>
+  <!-- base_link is the root of the tree: the wheel odometry publishes
+       odom -> base_link directly, so no extra "root_link" frame is needed. -->
 
   <link name="lidar_link">
     <visual>

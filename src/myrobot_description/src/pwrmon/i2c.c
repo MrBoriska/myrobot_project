@@ -38,11 +38,16 @@ uint32_t i2c_init(char *devname)
 		printf("Failed to open I2C port\r\n");
 		exit(1);
 	}
+	/* The caller uses the fd for every subsequent ioctl(): returning nothing
+	 * here used to leave it with a garbage descriptor. */
+	return (uint32_t)handle;
 }
 
 uint32_t i2c_write_byte(uint32_t i2c_master_port, uint8_t address, uint8_t command, uint8_t data)
 {
-
+	/* Not implemented: no caller in this project uses it. */
+	(void)i2c_master_port; (void)address; (void)command; (void)data;
+	return 0;
 }
 
 uint32_t i2c_write_short(uint32_t i2c_master_port, uint8_t address, uint8_t command, uint16_t data)
@@ -70,16 +75,21 @@ uint32_t i2c_write_short(uint32_t i2c_master_port, uint8_t address, uint8_t comm
 		printf("Write I2C failed\r\n");
 		exit(1);
 	}
+	return 0;
 }
 
 uint32_t i2c_write_buf(uint32_t i2c_master_port, uint8_t address, uint8_t command, uint8_t *data, uint8_t len)
 {
-
+	/* Not implemented: no caller in this project uses it. */
+	(void)i2c_master_port; (void)address; (void)command; (void)data; (void)len;
+	return 0;
 }
 
 uint8_t i2c_read_byte(uint32_t i2c_master_port, uint8_t address, uint8_t command)
 {
-
+	/* Not implemented: no caller in this project uses it. */
+	(void)i2c_master_port; (void)address; (void)command;
+	return 0;
 }
 
 uint16_t i2c_read_short(uint32_t i2c_master_port, uint8_t address, uint8_t command)
@@ -140,6 +150,6 @@ uint32_t i2c_read_buf(uint32_t i2c_master_port, uint8_t address, uint8_t command
 		printf("Read I2C failed\r\n");
 		exit(1);
 	}
-
+	return 0;
 }
 
