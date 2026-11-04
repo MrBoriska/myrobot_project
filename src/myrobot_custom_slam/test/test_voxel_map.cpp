@@ -61,20 +61,58 @@ TEST(VoxelMap, RejectsEmptyNeighbourhood)
   EXPECT_FALSE(map.match(Vec2(5.0, 5.0)).ok);
 }
 
-TEST(VoxelMap, RejectsIsotropicBlob)
+TEST(VoxelMap, RejectsCorner)
 {
+  // Two perpendicular walls meeting in one neighbourhood: the scatter is
+  // isotropic, so there is no line to fit and the point must not be used.
   VoxelMap::Params params;
   params.max_correspondence_dist = 1.0;
   VoxelMap map(params);
-  std::vector<Vec2f> blob;
-  for (int i = 0; i < 60; ++i) {
-    const double angle = 2.0 * M_PI * i / 60.0;
-    blob.emplace_back(
-      static_cast<float>(2.0 + 0.05 * std::cos(angle)),
-      static_cast<float>(0.05 * std::sin(angle)));
+  std::vector<Vec2f> corner;
+  for (int i = 0; i < 40; ++i) {
+    corner.emplace_back(2.0f + static_cast<float>(i) * 0.01f, 0.0f);
+    corner.emplace_back(2.0f, static_cast<float>(i) * 0.01f);
   }
-  map.insert(blob);
-  EXPECT_FALSE(map.match(Vec2(2.02, 0.0)).ok);
+  map.insert(corner);
+  EXPECT_FALSE(map.match(Vec2(2.05, 0.05)).ok);
+}
+
+TEST(VoxelMap, AcceptsLargeRadiusArc)
+{
+  // A pillar seen from further away is locally a wall - the filter may use it.
+  VoxelMap::Params params;
+  params.max_correspondence_dist = 1.0;
+  VoxelMap map(params);
+  std::vector<Vec2f> arc;
+  for (int i = -20; i <= 20; ++i) {
+    const double a = static_cast<double>(i) * 0.01;  // +/- 0.2 m of a 2 m circle
+    arc.emplace_back(
+      static_cast<float>(4.0 + 2.0 * std::cos(a)),
+      static_cast<float>(2.0 * std::sin(a)));
+  }
+  map.insert(arc);
+  EXPECT_TRUE(map.match(Vec2(6.0, 0.0)).ok);
+}
+
+TEST(VoxelMap, AcceptsStraightWallUnderHeavyNoise)
+{
+  // lambda_min grows with sigma^2, so a fixed ratio would reject a straight
+  // wall once the range noise is 3 cm. The gate is noise aware for this reason.
+  VoxelMap::Params params;
+  params.max_correspondence_dist = 1.0;
+  params.noise_sigma = 0.02;
+  VoxelMap map(params);
+  std::vector<Vec2f> wall;
+  unsigned seed = 12345u;
+  for (int i = 0; i < 200; ++i) {
+    seed = seed * 1103515245u + 12345u;
+    const double noise = (static_cast<double>((seed >> 16) & 0x7fff) / 32767.0 - 0.5) * 0.06;
+    wall.emplace_back(static_cast<float>(i * 0.02), static_cast<float>(noise));
+  }
+  EXPECT_GT(map.insert(wall), 100u);
+  const auto match = map.match(Vec2(2.0, 0.05));
+  ASSERT_TRUE(match.ok);
+  EXPECT_NEAR(std::fabs(match.normal.y()), 1.0, 1e-3);
 }
 
 TEST(VoxelMap, DeduplicatesAndKeepsCapacity)

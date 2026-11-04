@@ -38,6 +38,14 @@
     huber_delta: 0.06
     max_residual: 0.25
     min_points: 30
+    # A scan with only a few percent of correspondences is a lost lock, not a
+    # measurement; and the robot cannot jump further than this between scans.
+    min_inlier_ratio: 0.25
+    max_translation_step: 0.50
+    max_rotation_step: 0.50
+    # после стольких подряд отброшенных сканов карта перезапускается от текущей
+    # позы (loop closure нет, иначе фильтр не восстановится никогда)
+    reinit_after_rejected: 15
 
     init_samples: 100
     init_max_gyro: 0.25

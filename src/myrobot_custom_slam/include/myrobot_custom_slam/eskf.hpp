@@ -46,7 +46,17 @@ public:
     double measurement_sigma = 0.02;  ///< [m] lidar range noise
     double huber_delta = 0.06;        ///< [m] robust kernel knee
     double max_residual = 0.25;       ///< [m] hard gate on point-to-line residual
-    int min_points = 30;              ///< minimum inliers to accept a scan
+    int min_points = 30;              ///< absolute minimum inliers to accept a scan
+    /// Relative gate: a scan where only a few percent of the points found a
+    /// correspondence is a lost lock, not a measurement. Accepting it (as an
+    /// absolute count of 30 allowed on a 720-ray scan) drags the estimate away
+    /// and poisons the map with wrongly registered points.
+    double min_inlier_ratio = 0.25;
+    /// Physical plausibility of the correction w.r.t. the prior. Between two
+    /// scans the robot cannot teleport, so a bigger jump means a bad
+    /// association: reject the scan instead of jumping and destroying the map.
+    double max_translation_step = 0.50;  ///< [m]
+    double max_rotation_step = 0.50;     ///< [rad]
 
     // Correlated measurement errors (a small yaw error produces the same residual
     // along a whole wall) make point-independent weighting over-confident. A
@@ -89,6 +99,7 @@ public:
     int used = 0;
     int rejected = 0;
     int total = 0;
+    bool gated = false;  ///< rejected by the inlier-ratio / step gates
     double rms = 0.0;
   };
 

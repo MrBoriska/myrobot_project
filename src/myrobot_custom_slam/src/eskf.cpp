@@ -199,6 +199,9 @@ Eskf::UpdateStats Eskf::update(
   }
 
   const double inv_sigma2 = 1.0 / (params_.measurement_sigma * params_.measurement_sigma);
+  const int required_inliers = std::max(
+    params_.min_points,
+    static_cast<int>(std::ceil(params_.min_inlier_ratio * static_cast<double>(stats.total))));
 
   // Prior information matrix (inverse of the propagated covariance).
   Eigen::LDLT<Mat18> prior_ldlt(state_.cov);
@@ -265,9 +268,10 @@ Eskf::UpdateStats Eskf::update(
       sq_sum += residual * residual;
     }
 
-    if (used < params_.min_points) {
+    if (used < required_inliers) {
       stats.used = used;
       stats.rejected = rejected;
+      stats.gated = true;
       return stats;
     }
 
@@ -316,9 +320,22 @@ Eskf::UpdateStats Eskf::update(
     }
   }
 
-  if (used < params_.min_points) {
+  if (used < required_inliers) {
     stats.used = used;
     stats.rejected = rejected;
+    stats.gated = true;
+    return stats;
+  }
+
+  // The correction is expressed w.r.t. the prior (the propagated state), so a
+  // large norm means the association, not the odometry, is wrong.
+  if (delta.head<3>().norm() > params_.max_translation_step ||
+    delta.segment<3>(TH).norm() > params_.max_rotation_step)
+  {
+    stats.used = used;
+    stats.rejected = rejected;
+    stats.gated = true;
+    stats.rms = used > 0 ? std::sqrt(sq_sum / static_cast<double>(used)) : 0.0;
     return stats;
   }
 

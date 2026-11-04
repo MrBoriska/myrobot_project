@@ -124,7 +124,7 @@ private:
     declare_parameter("voxel_max_points_per_cell", 12);
     declare_parameter("voxel_max_cells", 40000);
     declare_parameter("voxel_min_point_spacing", 0.02);
-    declare_parameter("line_max_eigen_ratio", 0.20);
+    declare_parameter("line_max_eigen_ratio", 0.08);
     declare_parameter("line_min_eigen_spread", 1e-4);
     declare_parameter("line_min_neighbours", 5);
     declare_parameter("max_correspondence_dist", 0.60);
@@ -135,6 +135,10 @@ private:
     declare_parameter("huber_delta", 0.06);
     declare_parameter("max_residual", 0.25);
     declare_parameter("min_points", 30);
+    declare_parameter("min_inlier_ratio", 0.25);
+    declare_parameter("reinit_after_rejected", 15);
+    declare_parameter("max_translation_step", 0.50);
+    declare_parameter("max_rotation_step", 0.50);
 
     declare_parameter("init_samples", 100);
     declare_parameter("init_max_gyro", 0.25);
@@ -187,6 +191,8 @@ private:
     map_params_.min_neighbours =
       static_cast<int>(get_parameter("line_min_neighbours").as_int());
     map_params_.max_correspondence_dist = get_parameter("max_correspondence_dist").as_double();
+    // The line gate must know the real range noise (see VoxelMap::Params).
+    map_params_.noise_sigma = get_parameter("measurement_sigma").as_double();
 
     Eskf::Params ep;
     ep.planar = planar_;
@@ -196,6 +202,11 @@ private:
     ep.huber_delta = get_parameter("huber_delta").as_double();
     ep.max_residual = get_parameter("max_residual").as_double();
     ep.min_points = static_cast<int>(get_parameter("min_points").as_int());
+    ep.min_inlier_ratio = get_parameter("min_inlier_ratio").as_double();
+    reinit_after_rejected_ =
+      static_cast<int>(get_parameter("reinit_after_rejected").as_int());
+    ep.max_translation_step = get_parameter("max_translation_step").as_double();
+    ep.max_rotation_step = get_parameter("max_rotation_step").as_double();
     ep.init_samples = static_cast<int>(get_parameter("init_samples").as_int());
     ep.init_max_gyro = get_parameter("init_max_gyro").as_double();
     ep.init_max_gyro_mean = get_parameter("init_max_gyro_mean").as_double();
@@ -409,11 +420,35 @@ private:
 
     std::vector<std::uint8_t> inliers;
     const Eskf::UpdateStats stats = eskf_->update(points, *voxel_map_, &inliers);
+    if (stats.ok) {
+      consecutive_rejections_ = 0;
+    }
     if (!stats.ok) {
+      ++consecutive_rejections_;
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
-        "scan rejected: %d/%d inliers (rejected %d) — map=%zu cells",
-        stats.used, stats.total, stats.rejected, voxel_map_->cellCount());
+        "scan rejected: %d/%d inliers (gated out %d) — %s, map=%zu cells, %d in a row",
+        stats.used, stats.total, stats.rejected,
+        stats.gated ? "lost lock or implausible jump" : "too few correspondences",
+        voxel_map_->cellCount(), consecutive_rejections_);
+
+      // Recovery: without loop closure nothing can pull the estimate back once
+      // the map stops matching, so re-anchor the map at the current
+      // (dead-reckoned) pose instead of staying lost for the rest of the run.
+      if (consecutive_rejections_ >= reinit_after_rejected_) {
+        RCLCPP_ERROR(
+          get_logger(),
+          "lost lock for %d scans — restarting the map at the current pose "
+          "(%.2f, %.2f, %.0f deg)",
+          consecutive_rejections_, eskf_->state().p.x(), eskf_->state().p.y(),
+          yawOf(eskf_->state().q) * 180.0 / M_PI);
+        voxel_map_->clear();
+        map_initialized_ = false;
+        consecutive_rejections_ = 0;
+      }
+      // Still publish the (predicted) pose: dropping the TF chain would make
+      // every consumer lose the robot on top of losing the lock.
+      publishTransform(msg->header.stamp);
       return;
     }
 
@@ -656,6 +691,8 @@ private:
   Eigen::Isometry3d T_lidar_imu_ = Eigen::Isometry3d::Identity();
   Eigen::Isometry3d T_base_imu_ = Eigen::Isometry3d::Identity();
 
+  int consecutive_rejections_ = 0;
+  int reinit_after_rejected_ = 15;
   std::vector<ImuSample> init_buffer_;
   std::deque<PoseSample> poses_;
   bool map_initialized_ = false;

@@ -42,6 +42,13 @@ public:
     std::size_t max_cells = 40000;    ///< hard memory cap (~18 MB)
     double min_point_spacing = 0.02;  ///< [m] de-duplication radius
     double max_eigen_ratio = 0.20;    ///< lambda_min / lambda_max for a valid line
+    /// Perpendicular scatter the sensor itself can explain [m]. The gate is
+    /// `lambda_min <= max(ratio*lambda_max, (noise_factor*sigma)^2)`: WITHOUT the
+    /// noise term a fixed ratio rejects perfectly straight walls as soon as the
+    /// range noise grows (lambda_min scales with sigma^2), and the only way to
+    /// accept them again is to also accept curves.
+    double noise_sigma = 0.02;
+    double noise_factor = 2.0;
     double min_eigen_spread = 1e-4;   ///< [m^2] rejects degenerate (point-like) fits
     int min_neighbours = 5;
     double max_correspondence_dist = 0.60;  ///< [m] gate on nearest point distance
@@ -92,6 +99,7 @@ private:
   const Cell * findCell(std::int32_t ix, std::int32_t iy) const;
 
   Params params_;
+  double max_lambda_min_ = 0.0;
   double inv_cell_ = 10.0;
   std::unordered_map<std::int64_t, Cell> cells_;
   std::size_t point_count_ = 0;

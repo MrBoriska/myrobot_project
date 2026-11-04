@@ -51,6 +51,10 @@ class Checker(Node):
         if self.start is None:
             self.start = now
         elapsed = (now - self.start).nanoseconds * 1e-9
+        # Hard deadline: never hang because the map -> base_link chain broke.
+        if elapsed >= self.args.settle + self.args.duration:
+            self.done = True
+            return
         if self.truth is None or elapsed < self.args.settle:
             if elapsed > self.args.settle + 5.0 and not self.samples:
                 self.get_logger().error('no /ground_truth received')
@@ -88,8 +92,6 @@ class Checker(Node):
                 f'{math.degrees(slam_yaw):+6.1f} deg) '
                 f'err={error * 100:.1f} cm')
 
-        if elapsed >= self.args.settle + self.args.duration:
-            self.done = True
 
     def report(self):
         if not self.samples:

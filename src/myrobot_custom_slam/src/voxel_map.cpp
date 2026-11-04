@@ -21,6 +21,8 @@ VoxelMap::VoxelMap(const Params & params)
   inv_cell_ = 1.0 / params_.cell_size;
   params_.max_points_per_cell =
     std::max(2, std::min(params_.max_points_per_cell, kCellCapacity));
+  const double noise = params_.noise_factor * params_.noise_sigma;
+  max_lambda_min_ = noise * noise;
   cells_.reserve(static_cast<std::size_t>(
       std::min<std::size_t>(params_.max_cells, 4096)));
 }
@@ -162,8 +164,8 @@ VoxelMap::Match VoxelMap::match(const Vec2 & point) const
   if (lambda_max < params_.min_eigen_spread) {
     return m;  // all neighbours collapse into (almost) one point
   }
-  if (lambda_min > params_.max_eigen_ratio * lambda_max) {
-    return m;  // isotropic blob (corner, junction): no well defined line
+  if (lambda_min > std::max(params_.max_eigen_ratio * lambda_max, max_lambda_min_)) {
+    return m;  // scatter is larger than the sensor noise: corner or curve
   }
 
   // The line direction is the dominant eigenvector; its normal is the other one.
