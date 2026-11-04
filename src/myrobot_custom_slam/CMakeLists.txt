@@ -58,8 +58,14 @@ install(TARGETS slam_node bench_slam
 install(DIRECTORY include/
   DESTINATION include
 )
-install(DIRECTORY launch config rviz
+install(DIRECTORY launch config rviz worlds
   DESTINATION share/${PROJECT_NAME}
+)
+install(PROGRAMS
+  scripts/fake_sensors.py
+  scripts/check_slam_accuracy.py
+  scripts/circle_driver.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)

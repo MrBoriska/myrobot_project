@@ -40,7 +40,10 @@
     min_points: 30
 
     init_samples: 100
-    init_max_gyro: 0.60
+    init_max_gyro: 0.25
+    init_max_gyro_mean: 0.05
+    init_max_gyro_std: 0.15
+    init_max_accel_std: 2.00
     acc_noise: 0.015
     gyro_noise: 0.0004
     acc_bias_noise: 0.0001

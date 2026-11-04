@@ -1,0 +1,88 @@
+<?xml version="1.0" ?>
+<!--
+  Small room used by the Gazebo bring-up (launch/slam_gazebo.launch.py).
+
+  The default empty world gives the lidar nothing to see, so the SLAM node has
+  no map to register against. This world is an 8 x 8 m room with two pillars -
+  asymmetric on purpose, so a wrong extrinsic or a mirrored scan shows up
+  immediately in the resulting occupancy grid.
+-->
+<sdf version="1.6">
+  <world name="myrobot_room">
+    <include>
+      <uri>model://sun</uri>
+    </include>
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <model name="room_walls">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="walls">
+        <!-- 8 x 8 m, wall thickness 0.2 m, height 1 m -->
+        <collision name="south">
+          <pose>0 -4.1 0.5 0 0 0</pose>
+          <geometry><box><size>8.4 0.2 1.0</size></box></geometry>
+        </collision>
+        <visual name="south_visual">
+          <pose>0 -4.1 0.5 0 0 0</pose>
+          <geometry><box><size>8.4 0.2 1.0</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material>
+        </visual>
+        <collision name="north">
+          <pose>0 4.1 0.5 0 0 0</pose>
+          <geometry><box><size>8.4 0.2 1.0</size></box></geometry>
+        </collision>
+        <visual name="north_visual">
+          <pose>0 4.1 0.5 0 0 0</pose>
+          <geometry><box><size>8.4 0.2 1.0</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material>
+        </visual>
+        <collision name="west">
+          <pose>-4.1 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 8.4 1.0</size></box></geometry>
+        </collision>
+        <visual name="west_visual">
+          <pose>-4.1 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 8.4 1.0</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material>
+        </visual>
+        <collision name="east">
+          <pose>4.1 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 8.4 1.0</size></box></geometry>
+        </collision>
+        <visual name="east_visual">
+          <pose>4.1 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 8.4 1.0</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="pillars">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="pillars_link">
+        <collision name="pillar_a">
+          <pose>2.6 2.4 0.5 0 0 0</pose>
+          <geometry><cylinder><radius>0.3</radius><length>1.0</length></cylinder></geometry>
+        </collision>
+        <visual name="pillar_a_visual">
+          <pose>2.6 2.4 0.5 0 0 0</pose>
+          <geometry><cylinder><radius>0.3</radius><length>1.0</length></cylinder></geometry>
+          <material><ambient>0.5 0.4 0.3 1</ambient><diffuse>0.5 0.4 0.3 1</diffuse></material>
+        </visual>
+        <collision name="pillar_b">
+          <pose>-2.2 -1.7 0.5 0 0 0</pose>
+          <geometry><cylinder><radius>0.4</radius><length>1.0</length></cylinder></geometry>
+        </collision>
+        <visual name="pillar_b_visual">
+          <pose>-2.2 -1.7 0.5 0 0 0</pose>
+          <geometry><cylinder><radius>0.4</radius><length>1.0</length></cylinder></geometry>
+          <material><ambient>0.5 0.4 0.3 1</ambient><diffuse>0.5 0.4 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>

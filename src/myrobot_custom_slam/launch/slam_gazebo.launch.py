@@ -28,7 +28,10 @@ def generate_launch_description():
     xacro_file = os.path.join(description_share, 'urdf', 'myrobot.xacro')
     params_file = LaunchConfiguration('params_file')
     use_rviz = LaunchConfiguration('use_rviz')
+    use_gui = LaunchConfiguration('gui')
     world = LaunchConfiguration('world')
+    drive = LaunchConfiguration('drive')
+    speed = LaunchConfiguration('speed')
 
     robot_description = ParameterValue(
         Command(['xacro ', xacro_file]), value_type=str)
@@ -38,13 +41,42 @@ def generate_launch_description():
             'params_file',
             default_value=os.path.join(slam_share, 'config', 'slam.yaml')),
         DeclareLaunchArgument('use_rviz', default_value='true'),
-        DeclareLaunchArgument('world', default_value=''),
+        DeclareLaunchArgument('gui', default_value='true',
+                              description='Gazebo client (false = headless)'),
+        DeclareLaunchArgument(
+            'world',
+            default_value=os.path.join(slam_share, 'worlds', 'room.world'),
+            description='SDF world; the default room gives the lidar something '
+                        'to see (an empty world has no map to build)'),
+        DeclareLaunchArgument('drive', default_value='true',
+                              description='publish a scripted /cmd_vel (circle)'),
+        DeclareLaunchArgument('speed', default_value='0.3'),
+
+        # gzserver / gzclient separately: `gui:=false` then really means
+        # headless (no Gazebo client, no GPU needed).
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                os.path.join(gazebo_share, 'launch', 'gzserver.launch.py'),
+            ]),
+            launch_arguments={'world': world}.items(),
+        ),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([
-                os.path.join(gazebo_share, 'launch', 'gazebo.launch.py'),
+                os.path.join(gazebo_share, 'launch', 'gzclient.launch.py'),
             ]),
-            launch_arguments={'world': world}.items(),
+            condition=IfCondition(use_gui),
+        ),
+
+        # Scripted motion: without /cmd_vel the diff_drive plugin never moves,
+        # so the SLAM node would only ever see the first scan.
+        Node(
+            package='myrobot_custom_slam',
+            executable='circle_driver.py',
+            name='circle_driver',
+            output='screen',
+            arguments=['--speed', speed],
+            condition=IfCondition(drive),
         ),
 
         Node(
@@ -58,7 +90,8 @@ def generate_launch_description():
             package='gazebo_ros',
             executable='spawn_entity.py',
             output='screen',
-            arguments=['-topic', 'robot_description', '-entity', 'myrobot'],
+            arguments=['-topic', 'robot_description', '-entity', 'myrobot',
+                       '-z', '0.05'],
         ),
 
         Node(

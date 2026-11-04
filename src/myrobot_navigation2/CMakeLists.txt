@@ -16,8 +16,16 @@ find_package(ament_cmake REQUIRED)
 ################################################################################
 # Install
 ################################################################################
+# NOTE: `map/` does not exist in this package yet (it is produced by SLAM or by
+# `ros2 run nav2_map_server map_saver_cli`). Listing a missing directory makes
+# `colcon build --symlink-install` fail, so only existing ones are installed.
+set(NAV2_DIRS launch param rviz)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/map")
+  list(APPEND NAV2_DIRS map)
+endif()
+
 install(
-  DIRECTORY launch map param rviz
+  DIRECTORY ${NAV2_DIRS}
   DESTINATION share/${PROJECT_NAME}
 )
 

@@ -58,11 +58,27 @@ Eskf::InitStats Eskf::initialize(const std::vector<ImuSample> & samples)
   const Vec3 gyro_mean = gyro_sum * inv_n;
   stats.acc_norm = acc_mean.norm();
   stats.gyro_norm = gyro_norm_max;
+  stats.gyro_mean_norm = gyro_mean.norm();
+  stats.acc_std = 0.0;
+  stats.gyro_std = 0.0;
 
-  // Plausibility checks: a static start is required for a clean bias estimate.
+  // A static window is required for a clean bias estimate: check the magnitude
+  // and, more importantly, the spread. A slowly rotating start (the classic way
+  // to poison bg with the robot's own yaw rate) passes a max-norm test but not
+  // a variance test.
+  for (const ImuSample & s : samples) {
+    stats.acc_std += (s.acc - acc_mean).squaredNorm();
+    stats.gyro_std += (s.gyro - gyro_mean).squaredNorm();
+  }
+  stats.acc_std = std::sqrt(stats.acc_std * inv_n);
+  stats.gyro_std = std::sqrt(stats.gyro_std * inv_n);
+
   if (!std::isfinite(stats.acc_norm) ||
     std::fabs(stats.acc_norm - params_.gravity) > 0.5 * params_.gravity ||
-    gyro_norm_max > params_.init_max_gyro)
+    gyro_norm_max > params_.init_max_gyro ||
+    stats.gyro_mean_norm > params_.init_max_gyro_mean ||
+    stats.gyro_std > params_.init_max_gyro_std ||
+    stats.acc_std > params_.init_max_accel_std)
   {
     return stats;
   }
@@ -71,12 +87,21 @@ Eskf::InitStats Eskf::initialize(const std::vector<ImuSample> & samples)
   state_.bg = gyro_mean;
   state_.g = Vec3(0.0, 0.0, -params_.gravity);
 
-  // Level the platform using the measured specific force (points "up").
+  // Level the platform using the measured specific force (points "up") and make
+  // the map frame coincide with the base frame: the state lives in the IMU
+  // frame, so the known imu -> base mounting has to be compensated.
   const Vec3 up_body = acc_mean.normalized();
-  state_.q = Eigen::Quaterniond::FromTwoVectors(up_body, Vec3::UnitZ()).normalized();
+  const Mat3 level =
+    Eigen::Quaterniond::FromTwoVectors(params_.R_base_imu * up_body, Vec3::UnitZ())
+    .toRotationMatrix();
+  state_.q = Eigen::Quaterniond(level * params_.R_base_imu).normalized();
   state_.ba = acc_mean - params_.gravity * up_body;
   state_.v.setZero();
-  state_.p.setZero();
+  // Map origin == base pose at start: shift the IMU out of the origin.
+  state_.p = -state_.q.toRotationMatrix() * params_.t_base_imu;
+  if (params_.planar) {
+    state_.p.z() = 0.0;
+  }
 
   state_.cov.setIdentity();
   state_.cov.block<3, 3>(P, P) *= 1e-8;

@@ -62,6 +62,38 @@ TEST(Eskf, RejectsMovingStart)
   EXPECT_FALSE(eskf.initialized());
 }
 
+TEST(Eskf, RejectsRotatingStartEvenIfSpreadIsLow)
+{
+  // A slowly rotating platform has a small spread but a non-zero mean rate;
+  // the mean is what must be tested, otherwise the robot's yaw rate ends up in
+  // the gyro bias estimate.
+  Eskf eskf;
+  const auto samples = staticBurst(9.81, Vec3(0.0, 0.0, 0.11), 100);
+  const auto stats = eskf.initialize(samples);
+  EXPECT_FALSE(stats.ok);
+  EXPECT_NEAR(stats.gyro_mean_norm, 0.11, 1e-9);
+  EXPECT_LT(stats.gyro_std, 1e-9);
+}
+
+TEST(Eskf, AcceptsVibratingPlatform)
+{
+  // Real hardware vibrates: the mean must stay clean while the spread does not.
+  Eskf eskf;
+  std::vector<ImuSample> samples;
+  for (int i = 0; i < 200; ++i) {
+    ImuSample s;
+    s.t = 0.01 * i;
+    const double jitter = (i % 2 == 0) ? 0.5 : -0.5;
+    s.acc = Vec3(jitter, 0.0, 9.81);
+    s.gyro = Vec3(0.0, 0.0, (i % 2 == 0) ? 0.06 : -0.06);
+    samples.push_back(s);
+  }
+  const auto stats = eskf.initialize(samples);
+  EXPECT_TRUE(stats.ok);
+  EXPECT_GT(stats.acc_std, 0.1);
+  EXPECT_LT(stats.gyro_mean_norm, 1e-9);
+}
+
 TEST(Eskf, RejectsImplausibleGravity)
 {
   Eskf eskf;

@@ -165,9 +165,11 @@
     </joint>
 
     <gazebo reference="${w_name}_wheel">
+      <!-- fdir1 must be a unit vector along the rolling direction; "0 0 0" made
+           ODE use isotropic friction and the base yawed at zero command. -->
       <mu1 value="0.5"/>
-      <mu2 value="0.5"/>
-      <fdir1 value="0 0 0"/>
+      <mu2 value="1.0"/>
+      <fdir1 value="1 0 0"/>
 
       <!--kp value="10000000.00" />
       <kd value="1.00" />
@@ -188,6 +190,41 @@
       </actuator>
     </transmission>
   </xacro:macro>
+
+  <!-- Simulation-only support: with the two drive wheels at x=0 the base has no
+       pitch support and topples in Gazebo. On the real robot the frame itself
+       rests on the ground, so these casters are inert. -->
+  <xacro:property name="caster_radius" value="0.015" />
+  <xacro:macro name="caster" params="c_name origin_x">
+    <link name="${c_name}_caster">
+      <visual>
+        <geometry><sphere radius="${caster_radius}"/></geometry>
+        <material name="grey"><color rgba="0.4 0.4 0.4 1"/></material>
+      </visual>
+      <collision>
+        <geometry><sphere radius="${caster_radius}"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="0.02"/>
+        <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+      </inertial>
+    </link>
+    <joint name="base_to_${c_name}_caster" type="fixed">
+      <parent link="base_link"/>
+      <child link="${c_name}_caster"/>
+      <origin xyz="${origin_x} 0 ${-base_link_height/2 - clearance + caster_radius}"
+              rpy="0 0 0"/>
+    </joint>
+    <gazebo reference="${c_name}_caster">
+      <!-- Small but non-zero: a frictionless sphere lets the base slide and yaw. -->
+      <mu1 value="0.01"/>
+      <mu2 value="0.01"/>
+      <kp value="1000000.0"/>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:caster c_name="front" origin_x="0.09"/>
+  <xacro:caster c_name="rear" origin_x="-0.09"/>
 
   <xacro:wheel_joint
     w_name="l"

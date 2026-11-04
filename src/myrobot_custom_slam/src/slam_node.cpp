@@ -137,7 +137,10 @@ private:
     declare_parameter("min_points", 30);
 
     declare_parameter("init_samples", 100);
-    declare_parameter("init_max_gyro", 0.60);
+    declare_parameter("init_max_gyro", 0.25);
+    declare_parameter("init_max_gyro_mean", 0.05);
+    declare_parameter("init_max_gyro_std", 0.15);
+    declare_parameter("init_max_accel_std", 2.00);
     declare_parameter("acc_noise", 1.5e-2);
     declare_parameter("gyro_noise", 4e-4);
     declare_parameter("acc_bias_noise", 1e-4);
@@ -195,6 +198,9 @@ private:
     ep.min_points = static_cast<int>(get_parameter("min_points").as_int());
     ep.init_samples = static_cast<int>(get_parameter("init_samples").as_int());
     ep.init_max_gyro = get_parameter("init_max_gyro").as_double();
+    ep.init_max_gyro_mean = get_parameter("init_max_gyro_mean").as_double();
+    ep.init_max_gyro_std = get_parameter("init_max_gyro_std").as_double();
+    ep.init_max_accel_std = get_parameter("init_max_accel_std").as_double();
     ep.noise.acc = get_parameter("acc_noise").as_double();
     ep.noise.gyro = get_parameter("gyro_noise").as_double();
     ep.noise.acc_bias = get_parameter("acc_bias_noise").as_double();
@@ -208,13 +214,6 @@ private:
     } else {
       RCLCPP_WARN(get_logger(), "lidar_to_imu_* must have 3 elements, using identity");
     }
-    eskf_ = std::make_unique<Eskf>(ep);
-
-    map_publish_rate_ = get_parameter("map_publish_rate").as_double();
-    map_resolution_ = get_parameter("map_resolution").as_double();
-    map_max_extent_ = get_parameter("map_max_extent").as_double();
-    publish_registered_scan_ = get_parameter("publish_registered_scan").as_bool();
-
     const auto base_rpy = get_parameter("base_to_imu_rpy").as_double_array();
     const auto base_xyz = get_parameter("base_to_imu_xyz").as_double_array();
     if (base_rpy.size() == 3 && base_xyz.size() == 3) {
@@ -223,6 +222,18 @@ private:
     } else {
       RCLCPP_WARN(get_logger(), "base_to_imu_* must have 3 elements, using identity");
     }
+
+    // The filter works in the IMU frame but the map frame is defined by the
+    // robot base frame at start, so the mounting rotation has to be removed.
+    ep.R_base_imu = T_base_imu_.linear();
+    ep.t_base_imu = T_base_imu_.translation();
+
+    eskf_ = std::make_unique<Eskf>(ep);
+
+    map_publish_rate_ = get_parameter("map_publish_rate").as_double();
+    map_resolution_ = get_parameter("map_resolution").as_double();
+    map_max_extent_ = get_parameter("map_max_extent").as_double();
+    publish_registered_scan_ = get_parameter("publish_registered_scan").as_bool();
 
     // Pre-compute the extrinsic and its inverse once.
     T_lidar_imu_ = Eigen::Isometry3d::Identity();
@@ -252,13 +263,15 @@ private:
       }
       const Eskf::InitStats stats = eskf_->initialize(init_buffer_);
       if (!stats.ok) {
-        RCLCPP_WARN(
-          get_logger(),
-          "IMU init rejected (acc=%.2f m/s^2, max gyro=%.2f rad/s), retrying",
-          stats.acc_norm, stats.gyro_norm);
-        // Keep the most recent half so the filter can start once the robot rests.
-        init_buffer_.erase(
-          init_buffer_.begin(), init_buffer_.begin() + static_cast<long>(init_buffer_.size() / 2));
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "IMU init rejected (|acc|=%.2f m/s^2, |gyro mean|=%.3f, max gyro=%.2f, "
+          "gyro std=%.3f, acc std=%.2f rad/s) — the platform must not be rotating, "
+          "retrying",
+          stats.acc_norm, stats.gyro_mean_norm, stats.gyro_norm, stats.gyro_std,
+          stats.acc_std);
+        // Drop the whole window: mixing moving and static samples would bias bg.
+        init_buffer_.clear();
         return;
       }
       init_buffer_.clear();
@@ -503,14 +516,19 @@ private:
     if (!publish_registered_scan_) {
       return;
     }
-    std::size_t n = points.size();
-    if (mask != nullptr) {
-      n = 0;
-      for (std::size_t i = 0; i < points.size(); ++i) {
-        if (i < mask->size() && (*mask)[i] != 0) {
-          ++n;
-        }
+    // Collect the indices first: the iterators below are tied to the point
+    // count of the message, so skipping points inside the write loop would run
+    // them past the end of the buffer (heap corruption).
+    std::vector<std::size_t> keep;
+    keep.reserve(points.size());
+    for (std::size_t i = 0; i < points.size(); ++i) {
+      if (mask != nullptr && (i >= mask->size() || (*mask)[i] == 0)) {
+        continue;
       }
+      keep.push_back(i);
+    }
+    if (keep.empty()) {
+      return;
     }
 
     sensor_msgs::msg::PointCloud2 cloud;
@@ -518,19 +536,19 @@ private:
     cloud.header.frame_id = map_frame_;
     sensor_msgs::PointCloud2Modifier modifier(cloud);
     modifier.setPointCloud2FieldsByString(1, "xyz");
-    modifier.resize(n);
+    modifier.resize(keep.size());
 
     sensor_msgs::PointCloud2Iterator<float> iter_x(cloud, "x");
     sensor_msgs::PointCloud2Iterator<float> iter_y(cloud, "y");
     sensor_msgs::PointCloud2Iterator<float> iter_z(cloud, "z");
-    for (std::size_t i = 0; i < points.size(); ++i, ++iter_x, ++iter_y, ++iter_z) {
-      if (mask != nullptr && i < mask->size() && (*mask)[i] == 0) {
-        continue;
-      }
-      const Vec2f world = eskf_->lidarToWorld(points[i]);
+    for (const std::size_t index : keep) {
+      const Vec2f world = eskf_->lidarToWorld(points[index]);
       *iter_x = world.x();
+      ++iter_x;
       *iter_y = world.y();
+      ++iter_y;
       *iter_z = 0.0f;
+      ++iter_z;
     }
     cloud_pub_->publish(cloud);
   }
@@ -547,11 +565,13 @@ private:
     }
 
     const NavState & s = eskf_->state();
-    const double half = 0.5 * map_max_extent_;
-    double min_x = s.p.x() - half;
-    double max_x = s.p.x() + half;
-    double min_y = s.p.y() - half;
-    double max_y = s.p.y() + half;
+    // Bounds = data extent (plus the robot) with a margin, clamped to the
+    // configured maximum. Sizing from map_max_extent alone would allocate a
+    // 40x40 m grid for an 8x8 m room.
+    double min_x = s.p.x();
+    double max_x = s.p.x();
+    double min_y = s.p.y();
+    double max_y = s.p.y();
 
     for (const Vec2 & c : centers) {
       min_x = std::min(min_x, c.x());
@@ -559,6 +579,17 @@ private:
       min_y = std::min(min_y, c.y());
       max_y = std::max(max_y, c.y());
     }
+    constexpr double kMargin = 1.0;
+    min_x -= kMargin;
+    max_x += kMargin;
+    min_y -= kMargin;
+    max_y += kMargin;
+    // Cap the window around the robot pose.
+    const double half = 0.5 * map_max_extent_;
+    min_x = std::max(min_x, s.p.x() - half);
+    max_x = std::min(max_x, s.p.x() + half);
+    min_y = std::max(min_y, s.p.y() - half);
+    max_y = std::min(max_y, s.p.y() + half);
 
     const double res = std::max(0.01, map_resolution_);
     const int width = static_cast<int>(std::ceil((max_x - min_x) / res)) + 1;

@@ -31,7 +31,14 @@ public:
 
     // Initialisation
     int init_samples = 100;
-    double init_max_gyro = 0.60;  ///< [rad/s] reject a moving start
+    // A static start is identified by the *mean* rate (a rotating robot has a
+    // non-zero mean and would poison the gyro bias), not by the instantaneous
+    // spread: a vibrating platform jitters by tens of mrad/s and is perfectly
+    // fine, because the mean still averages to the bias.
+    double init_max_gyro = 0.25;       ///< [rad/s] reject spikes (14 deg/s)
+    double init_max_gyro_mean = 0.05;  ///< [rad/s] mean rate => not rotating (3 deg/s)
+    double init_max_gyro_std = 0.15;   ///< [rad/s] vibration tolerance
+    double init_max_accel_std = 2.00;  ///< [m/s^2] gross motion / falling
 
     // Measurement update
     int max_iterations = 4;
@@ -51,6 +58,16 @@ public:
     bool planar = true;
     Mat3 R_lidar_imu = Mat3::Identity();  ///< lidar -> imu rotation
     Vec3 t_lidar_imu = Vec3::Zero();      ///< lidar -> imu translation
+    /// imu -> base rotation. The state is expressed in the IMU frame, but the
+    /// map frame should coincide with the robot base frame at start (REP-105:
+    /// the map origin is the robot's initial pose), so the known mounting is
+    /// removed here. Without it a URDF that rotates imu_link (this one does,
+    /// rpy 0 0 -pi) leaves the whole map turned by that angle.
+    Mat3 R_base_imu = Mat3::Identity();
+    /// Position of the IMU in the base frame [m]. Removed at initialisation so
+    /// that the map origin is the *base* pose at start (odometry convention),
+    /// not the IMU's.
+    Vec3 t_base_imu = Vec3::Zero();
   };
 
   struct InitStats
@@ -59,6 +76,9 @@ public:
     int samples = 0;
     double acc_norm = 0.0;
     double gyro_norm = 0.0;
+    double acc_std = 0.0;
+    double gyro_std = 0.0;
+    double gyro_mean_norm = 0.0;
   };
 
   struct UpdateStats
